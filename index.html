@@ -358,6 +358,19 @@ img { -webkit-user-drag: none; }
 }
 .battle-ball { position: absolute; font-size: 34px; z-index: 5; transition: transform .65s cubic-bezier(.4,-.3,.65,1); }
 
+.battle-quiz .bq-title { text-align: center; font-size: 13.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
+.battle-quiz .bq-prompt {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 10px 14px; margin-bottom: 10px;
+}
+.battle-quiz .bq-prompt .bqe { font-size: 34px; }
+.battle-quiz .bq-prompt .bqe .colorball { display: inline-block; width: .9em; height: .9em; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,.18); }
+.battle-quiz .bq-prompt .bqk { font-size: 19px; font-weight: 900; }
+.battle-quiz .choices { grid-template-columns: 1fr; gap: 8px; }
+.battle-quiz .choice { min-height: 52px; flex-direction: row; gap: 10px; padding: 9px 12px; }
+.pct-up { color: var(--good); font-weight: 900; }
+
 .star-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
 .star-overlay span { position: absolute; font-size: 13px; animation: twinkle 1.8s ease-in-out infinite; }
 @keyframes twinkle { 0%,100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.25); } }
@@ -517,6 +530,7 @@ const CONFIG = {
     legendary: { ko: "전설",   badge: "rb-legendary" },
   },
   pityRate: 0.5, // 조우 추첨 시 미보유 우선 확률
+  battleQuizBonus: 15, // 조우 영어 시험 첫 시도 정답 시 포획 확률 보너스(%p) — 코인 보상 없음
 };
 
 /* ================================================================
@@ -2127,6 +2141,10 @@ const Adventure = {
   mon: null,     // { id, name, rarity }
   busy: false,
   imgOk: true,
+  bonus: 0,       // 조우 영어 시험 정답 보너스 (%p, 이번 조우 동안 유지)
+  quizWord: null,
+  quizWrong: false,
+  quizDone: false,
 
   ballTotal() { return CONFIG.ballOrder.reduce((s, k) => s + SAVE.balls[k], 0); },
 
@@ -2169,6 +2187,8 @@ const Adventure = {
     this.mon = { id, name: POKEMON_KO[id - 1], rarity };
     this.busy = false;
     this.imgOk = true;
+    this.bonus = 0;
+    this.quizWord = null; this.quizWrong = false; this.quizDone = false;
     [gifUrl(id), spriteUrl(id)].forEach(u => { const pre = new Image(); pre.src = u; });
     showScreen("adventure");
   },
@@ -2194,7 +2214,7 @@ const Adventure = {
   },
 
   catchPct(ballKey) {
-    return Math.min(100, CONFIG.baseCatch[this.mon.rarity] + CONFIG.balls[ballKey].bonus);
+    return Math.min(100, CONFIG.baseCatch[this.mon.rarity] + CONFIG.balls[ballKey].bonus + this.bonus);
   },
 
   ballRowHtml() {
@@ -2206,9 +2226,71 @@ const Adventure = {
       return '<button class="ball-btn' + (n > 0 ? "" : " none") + '" data-throw="' + k + '">' +
         '<span class="bi">' + b.emoji + '</span>' +
         '<span class="bn">' + b.name + " × " + n + "</span>" +
-        '<span class="bp ' + cls + '">잡을 확률 ' + pct + "%</span>" +
+        '<span class="bp ' + cls + '">잡을 확률 ' + pct + "%" + (this.bonus ? ' <span class="pct-up">⬆️</span>' : "") + "</span>" +
         "</button>";
     }).join("") + "</div>";
+  },
+
+  // 조우 영어 시험: 첫 시도 정답이면 이번 조우 동안 포획 확률 +15%p (코인 없음)
+  startQuiz() {
+    const w = WORDS[Math.floor(Math.random() * WORDS.length)];
+    const listenMode = TTS.ok && SAVE.settings.tts && Math.random() < 0.4;
+    this.quizWord = w; this.quizWrong = false; this.quizDone = false;
+    const choices = shuffle([w, ...pickN(WORDS.filter(x => x.id !== w.id), 2)]);
+    typeText($("#battle-dialog"), "야생 " + this.mon.name + "의 영어 시험이다!");
+    const controls = $("#adv-controls");
+    controls.innerHTML =
+      '<div class="battle-quiz">' +
+        '<div class="bq-title">맞히면 잡을 확률이 올라가요! ⬆️</div>' +
+        '<div class="bq-prompt">' +
+          (listenMode
+            ? '<button class="speak-btn" id="bq-speak" style="width:54px;height:54px;font-size:25px">🔊</button><span class="bqk">잘 듣고 골라요!</span>'
+            : '<span class="bqe">' + emojiHtml(w) + '</span><span class="bqk">' + esc(w.ko) + "</span>") +
+        "</div>" +
+        '<div class="choices">' + choices.map(c => listenMode
+          ? '<button class="choice" data-bq="' + c.id + '"><span class="em" style="font-size:26px">' + emojiHtml(c) + '</span><span class="ko">' + esc(c.ko) + "</span></button>"
+          : '<button class="choice" data-bq="' + c.id + '"><span class="en">' + esc(c.en) + "</span></button>"
+        ).join("") + "</div>" +
+      "</div>";
+    controls.classList.remove("hidden");
+    if (listenMode) {
+      $("#bq-speak").addEventListener("click", () => { SFX.tap(); TTS.speak(w.en); });
+      later(() => TTS.speak(w.en), 350);
+    }
+  },
+
+  bqAnswer(btn) {
+    if (this.quizDone) return;
+    const id = Number(btn.dataset.bq);
+    const dialog = $("#battle-dialog");
+    if (id !== this.quizWord.id) {
+      if (!this.quizWrong) { this.quizWrong = true; SAVE.stats.totalAnswered++; saveNow(); }
+      SFX.wrong();
+      btn.classList.add("wrong");
+      typeText(dialog, "앗, 빗나갔다! 다시 골라 보자!");
+      return;
+    }
+    this.quizDone = true;
+    btn.classList.add("right");
+    TTS.speak(this.quizWord.en);
+    if (!this.quizWrong) {
+      SAVE.stats.totalAnswered++;
+      SAVE.stats.totalCorrect++;
+      saveNow();
+      this.bonus = CONFIG.battleQuizBonus;
+      const hp = $("#enemy-hp");
+      if (hp) hp.style.width = "65%";
+      SFX.combo();
+      typeText(dialog, "정답! " + this.mon.name + "이(가) 마음을 열었다! 잡을 확률 UP! ⬆️");
+    } else {
+      SFX.correct();
+      typeText(dialog, "정답! 다음엔 한 번에 맞혀 보자!");
+    }
+    later(() => {
+      typeText(dialog, "어떤 볼을 던질까?");
+      $("#adv-controls").innerHTML = this.ballRowHtml();
+      this.busy = false;
+    }, 1500);
   },
 
   render(el) {
@@ -2263,13 +2345,11 @@ const Adventure = {
       SFX.bgmStart();
       typeText($("#battle-dialog"), "앗! 야생 " + m.name + "이(가) 나타났다!");
     }, 1400);
-    later(() => {
-      typeText($("#battle-dialog"), "어떤 볼을 던질까?");
-      $("#adv-controls").classList.remove("hidden");
-      this.busy = false;
-    }, 3000);
+    later(() => this.startQuiz(), 3000);
 
     el.addEventListener("click", (e) => {
+      const bq = e.target.closest("[data-bq]");
+      if (bq && !bq.classList.contains("wrong")) { this.bqAnswer(bq); return; }
       const bb = e.target.closest("[data-throw]");
       if (bb && !this.busy) this.throwBall(bb.dataset.throw);
     });
