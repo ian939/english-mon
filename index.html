@@ -281,19 +281,86 @@ img { -webkit-user-drag: none; }
 /* ===== 모험 / 포획 ===== */
 .adv-scene {
   position: relative; border-radius: 26px; overflow: hidden;
-  background: linear-gradient(180deg, #8fd3ff 0%, #c9f0d8 62%, #7ccf8e 62%, #5fbf77 100%);
-  min-height: 300px; box-shadow: var(--shadow);
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 14px;
+  min-height: 340px; box-shadow: var(--shadow);
+  margin-bottom: 12px;
 }
-.adv-scene.legendary { background: linear-gradient(180deg, #2b2d63 0%, #7b5ce5 60%, #4a3f9e 60%, #37306b 100%); }
-.adv-scene .grass { position: absolute; bottom: 8px; font-size: 26px; opacity: .9; }
-.adv-mon { position: relative; text-align: center; z-index: 2; }
-.adv-mon img { width: clamp(150px, 45vw, 210px); height: auto; filter: drop-shadow(0 10px 14px rgba(0,0,0,.25)); animation: monIn .5s cubic-bezier(.2,1.4,.4,1) both; }
-@keyframes monIn { from { transform: scale(0) translateY(30px); opacity: 0 } to { transform: none; opacity: 1 } }
-.adv-mon .fallback { width: clamp(130px, 40vw, 180px); height: clamp(130px, 40vw, 180px); border-radius: 50%; background: radial-gradient(circle at 50% 35%, #ff6b6b 49%, #fff 51%); display: flex; align-items: center; justify-content: center; font-size: 60px; margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,.2); }
-.adv-mon .mname { margin-top: 6px; font-size: 22px; font-weight: 900; color: #163a2b; background: rgba(255,255,255,.85); display: inline-block; padding: 4px 16px; border-radius: 999px; }
-.adv-scene.legendary .adv-mon .mname { color: #3a2b63; }
+/* 타입별 배틀 배경 (하늘 58% / 땅 42%) */
+.bg-meadow   { background: linear-gradient(180deg, #8fd3ff 0%, #c9f0d8 58%, #7ccf8e 58%, #5fbf77 100%); }
+.bg-forest   { background: linear-gradient(180deg, #79c9a9 0%, #b4ecc9 58%, #4e9d5f 58%, #3d7f4c 100%); }
+.bg-sea      { background: linear-gradient(180deg, #79c9f5 0%, #b8e8ff 58%, #3a8fd9 58%, #2a6fb0 100%); }
+.bg-ice      { background: linear-gradient(180deg, #a8ddf5 0%, #eef9ff 58%, #9fd3ee 58%, #7db8dd 100%); }
+.bg-fire     { background: linear-gradient(180deg, #55282d 0%, #b85a2e 58%, #7a2f1d 58%, #571f12 100%); }
+.bg-electric { background: linear-gradient(180deg, #454568 0%, #8a86b8 58%, #c9b64a 58%, #a3923a 100%); }
+.bg-psychic  { background: linear-gradient(180deg, #6a4a9e 0%, #c9a0f0 58%, #7a5ab8 58%, #5a3f96 100%); }
+.bg-night    { background: linear-gradient(180deg, #23244d 0%, #55558f 58%, #3a3a6a 58%, #28285a 100%); }
+.bg-rock     { background: linear-gradient(180deg, #b9c4d0 0%, #e8ddc4 58%, #a08668 58%, #82684e 100%); }
+.bg-swamp    { background: linear-gradient(180deg, #5f6d8a 0%, #93a86f 58%, #4a5e3d 58%, #384a2f 100%); }
+.bg-dragon   { background: linear-gradient(180deg, #26365e 0%, #4a5e9e 58%, #32406e 58%, #232d50 100%); }
+
+.battle-platform { position: absolute; border-radius: 50%; background: rgba(0,0,0,.16); }
+.platform-enemy { right: 5%; top: 47%; width: 40%; height: 34px; }
+.platform-ally { left: 3%; bottom: 58px; width: 44%; height: 38px; }
+
+.grass-patch { position: absolute; right: 17%; top: 34%; font-size: 46px; z-index: 2; transform-origin: 50% 90%; animation: grassShake .35s ease-in-out infinite; }
+@keyframes grassShake { 0%,100% { transform: rotate(-7deg) scale(1); } 50% { transform: rotate(9deg) scale(1.1); } }
+
+.adv-enemy { position: absolute; right: 6%; top: 13%; width: 40%; text-align: center; z-index: 2; animation: idleBob 2.2s ease-in-out infinite; }
+@keyframes idleBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.adv-enemy img {
+  height: clamp(96px, 27vw, 148px); width: auto; max-width: 100%; object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 8px 8px rgba(0,0,0,.3));
+  animation: monIn .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.adv-enemy img.art { image-rendering: auto; }
+@keyframes monIn { from { transform: scale(0) translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.adv-enemy .fallback {
+  width: clamp(90px, 24vw, 120px); height: clamp(90px, 24vw, 120px); border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #ff6b6b 49%, #fff 51%);
+  display: flex; align-items: center; justify-content: center; font-size: 44px; margin: 0 auto;
+  box-shadow: 0 8px 16px rgba(0,0,0,.2);
+}
+.sucked { animation: suckIn .35s ease-in forwards !important; }
+@keyframes suckIn { to { transform: scale(0) translateY(-16px); filter: brightness(4); opacity: .15; } }
+.reappear { animation: monIn .35s ease-out both !important; }
+.fleeing { animation: fleeRun .6s ease-in forwards !important; }
+@keyframes fleeRun { to { transform: translateX(150px); opacity: 0; } }
+
+.adv-ally { position: absolute; left: 7%; bottom: 62px; z-index: 2; text-align: center; }
+.adv-ally img {
+  height: clamp(78px, 21vw, 116px); width: auto; image-rendering: pixelated;
+  filter: drop-shadow(0 6px 6px rgba(0,0,0,.3));
+  animation: allyIn .4s ease-out both;
+}
+.adv-ally img.art { image-rendering: auto; }
+@keyframes allyIn { from { transform: translateX(-30px); opacity: 0 } to { transform: none; opacity: 1 } }
+.ally-label { font-size: 11px; font-weight: 900; background: rgba(255,255,255,.88); border-radius: 999px; padding: 2px 9px; display: inline-block; margin-top: 2px; }
+
+.nameplate {
+  position: absolute; left: 10px; top: 10px; z-index: 3;
+  background: rgba(255,255,255,.94); border-radius: 14px; padding: 8px 12px 9px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.18); min-width: 47%;
+  animation: plateIn .35s ease-out both;
+}
+@keyframes plateIn { from { transform: translateX(-24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.nameplate .np-name { font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.nameplate .type-chip { font-size: 10px; padding: 2px 8px; margin: 2px 2px 0 0; }
+.hpwrap { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+.hpwrap .hplabel { font-size: 9px; font-weight: 900; color: #e8a200; letter-spacing: 1px; }
+.hpbar { flex: 1; height: 8px; background: #e2e8ee; border-radius: 99px; overflow: hidden; }
+.hpbar > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .5s; }
+
+.battle-dialog {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4;
+  background: rgba(255,255,255,.96); border: 2.5px solid rgba(45,58,74,.25);
+  border-radius: 14px; padding: 11px 14px; font-weight: 800; font-size: 15px;
+  min-height: 46px; color: var(--ink);
+}
+.battle-ball { position: absolute; font-size: 34px; z-index: 5; transition: transform .65s cubic-bezier(.4,-.3,.65,1); }
+
+.star-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.star-overlay span { position: absolute; font-size: 13px; animation: twinkle 1.8s ease-in-out infinite; }
+@keyframes twinkle { 0%,100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.25); } }
 .rarity-badge { display: inline-block; font-size: 13px; font-weight: 900; padding: 3px 10px; border-radius: 999px; margin-left: 5px; vertical-align: 2px; }
 .rb-common { background: #e6edf4; color: #5b6b7c; }
 .rb-rare { background: #d9e9ff; color: #1f66d0; }
@@ -328,21 +395,10 @@ img { -webkit-user-drag: none; }
 .ball-btn.none { filter: grayscale(.85) opacity(.5); pointer-events: none; }
 .pct-good { color: var(--good); } .pct-mid { color: #e8a200; } .pct-bad { color: var(--accent); }
 
-.thrown-ball {
-  position: absolute; font-size: 42px; z-index: 5; left: 8%; bottom: 10%;
-  animation: throwArc .7s cubic-bezier(.3,.2,.6,1) forwards;
-}
-@keyframes throwArc {
-  0% { transform: translate(0,0) rotate(0); }
-  100% { transform: translate(calc(38vw), -120px) rotate(720deg); }
-}
-.wobbling { display: inline-block; animation: wobble .8s ease-in-out infinite; font-size: 64px; transform-origin: 50% 85%; }
+.wobbling { display: inline-block; animation: wobble .8s ease-in-out infinite; font-size: 54px; transform-origin: 50% 85%; }
 @keyframes wobble { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-24deg) } 75% { transform: rotate(24deg) } }
-.catch-flash { animation: flashPop .5s ease both; }
+.catch-flash { animation: flashPop .5s ease both; font-size: 54px; }
 @keyframes flashPop { 0% { filter: brightness(3); transform: scale(.6); } 100% { filter: none; transform: scale(1); } }
-.mon-escape { animation: escapeUp .6s ease both; }
-@keyframes escapeUp { to { transform: translateY(-30px) scale(1.15); opacity: 0; } }
-.adv-msg { text-align: center; font-size: 18px; font-weight: 900; min-height: 26px; margin-bottom: 10px; }
 
 /* ===== 도감 ===== */
 .dex-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -773,8 +829,33 @@ function rarityOf(id) {
 const RARITY_POOL = { common: [], rare: [], unique: [], legendary: [] };
 for (let i = 1; i <= TOTAL_POKEMON; i++) RARITY_POOL[rarityOf(i)].push(i);
 
-function spriteUrl(id) {
-  return "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/" + id + ".png";
+const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+function spriteUrl(id) { return SPRITE_BASE + "/other/official-artwork/" + id + ".png"; }
+function gifUrl(id) { return SPRITE_BASE + "/versions/generation-v/black-white/animated/" + id + ".gif"; }
+function gifBackUrl(id) { return SPRITE_BASE + "/versions/generation-v/black-white/animated/back/" + id + ".gif"; }
+function backPngUrl(id) { return SPRITE_BASE + "/back/" + id + ".png"; }
+
+// 배틀 스프라이트 폴백 체인: 움직이는 GIF → 공식 일러스트 → 몬스터볼 카드
+function advImgFail(img) {
+  if (!img.dataset.step) {
+    img.dataset.step = "art";
+    img.classList.add("art");
+    img.src = spriteUrl(img.dataset.mid);
+    return;
+  }
+  Adventure.imgOk = false;
+  const holder = img.parentElement;
+  img.remove();
+  if (holder && !holder.querySelector(".fallback")) {
+    holder.insertAdjacentHTML("afterbegin", '<div class="fallback">❔</div>');
+  }
+}
+// 파트너(뒷모습): 움직이는 GIF → 도트 뒷모습 → 공식 일러스트 → 숨김
+function allyImgFail(img) {
+  const step = img.dataset.step || "gif";
+  if (step === "gif") { img.dataset.step = "png"; img.src = backPngUrl(img.dataset.mid); return; }
+  if (step === "png") { img.dataset.step = "art"; img.classList.add("art"); img.src = spriteUrl(img.dataset.mid); return; }
+  img.remove();
 }
 
 // 타입 색상 (한글 타입명 기준)
@@ -1064,6 +1145,7 @@ const Storage = {
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
       stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
+      partner: null, // 모험에 데려가는 파트너 포켓몬 id
       welcomed: false,
     };
   },
@@ -1145,6 +1227,32 @@ const SFX = {
   },
   escape()  { this.tone(400, 0.15, "sawtooth", 0, 0.1); this.tone(250, 0.25, "sawtooth", 0.12, 0.1); },
   star(i)   { this.tone(880 + i*220, 0.2, "sine", 0, 0.18); },
+
+  // ---- 배틀 BGM: 칩튠 루프 (32스텝, 외부 파일 없음) ----
+  bgmTimer: null, bgmStep: 0, bgmNext: 0,
+  BGM_MEL: [659,0,784,988, 1319,988,1175,988, 880,784,880,988, 784,0,659,0,
+            659,0,784,988, 1319,988,1175,1319, 1047,988,880,784, 659,587,659,0],
+  BGM_BASS:[165,0,165,0, 196,0,196,0, 147,0,147,0, 131,0,196,0,
+            165,0,165,0, 196,0,196,0, 175,0,175,0, 131,0,147,0],
+  BGM_STEP_DUR: 0.19,
+  bgmStart() {
+    if (!this.ensure()) return;
+    this.bgmStop();
+    this.bgmStep = 0;
+    this.bgmNext = this.ctx.currentTime + 0.08;
+    this.bgmTimer = setInterval(() => {
+      if (!this.ctx || !SAVE.settings.sfx) { this.bgmStop(); return; }
+      while (this.bgmNext < this.ctx.currentTime + 0.3) {
+        const i = this.bgmStep % 32;
+        const delay = this.bgmNext - this.ctx.currentTime;
+        if (this.BGM_MEL[i]) this.tone(this.BGM_MEL[i], 0.17, "triangle", delay, 0.055);
+        if (this.BGM_BASS[i]) this.tone(this.BGM_BASS[i], 0.16, "square", delay, 0.035);
+        this.bgmNext += this.BGM_STEP_DUR;
+        this.bgmStep++;
+      }
+    }, 90);
+  },
+  bgmStop() { if (this.bgmTimer) { clearInterval(this.bgmTimer); this.bgmTimer = null; } },
 };
 
 const TTS = {
@@ -1237,6 +1345,20 @@ function fxConfetti(emojis, count = 14) {
   }
 }
 
+// 대화창 타이핑 효과
+let _typeInt = null;
+function typeText(el, text, speed = 26) {
+  if (!el) return;
+  if (_typeInt) { clearInterval(_typeInt); _typeInt = null; }
+  el.textContent = "";
+  let i = 0;
+  _typeInt = setInterval(() => {
+    el.textContent += text[i++];
+    if (i >= text.length) { clearInterval(_typeInt); _typeInt = null; }
+  }, speed);
+  screenTimers.push(_typeInt); // clearTimeout은 interval id에도 동작
+}
+
 // 화면 렌더러 레지스트리
 const Screens = {};
 let currentScreen = null;
@@ -1246,6 +1368,7 @@ function showScreen(name, params) {
   screenTimers.forEach(clearTimeout);
   screenTimers = [];
   TTS.stop();
+  SFX.bgmStop();
   currentScreen = name;
   $("#app").innerHTML = "";
   const sec = document.createElement("section");
@@ -1450,7 +1573,7 @@ document.addEventListener("click", (e) => {
     case "toggle-sfx":
       SAVE.settings.sfx = !SAVE.settings.sfx; saveNow();
       btn.classList.toggle("off", !SAVE.settings.sfx);
-      if (SAVE.settings.sfx) SFX.correct();
+      if (SAVE.settings.sfx) SFX.correct(); else SFX.bgmStop();
       break;
     case "toggle-tts":
       SAVE.settings.tts = !SAVE.settings.tts; saveNow();
@@ -2046,9 +2169,28 @@ const Adventure = {
     this.mon = { id, name: POKEMON_KO[id - 1], rarity };
     this.busy = false;
     this.imgOk = true;
-    const pre = new Image();
-    pre.src = spriteUrl(id);
+    [gifUrl(id), spriteUrl(id)].forEach(u => { const pre = new Image(); pre.src = u; });
     showScreen("adventure");
+  },
+
+  // 타입 → 배틀 배경
+  TYPE_SCENE: {
+    "물": "bg-sea", "얼음": "bg-ice", "불꽃": "bg-fire", "풀": "bg-forest", "벌레": "bg-forest",
+    "전기": "bg-electric", "에스퍼": "bg-psychic", "고스트": "bg-night", "악": "bg-night",
+    "드래곤": "bg-dragon", "바위": "bg-rock", "땅": "bg-rock", "격투": "bg-rock", "강철": "bg-rock",
+    "독": "bg-swamp",
+  },
+  sceneClass(id) {
+    const t = (DEX_INFO[id] ? DEX_INFO[id][0] : "노말").split("·")[0];
+    return this.TYPE_SCENE[t] || "bg-meadow";
+  },
+
+  // 파트너: 지정한 포켓몬, 없으면 가장 최근에 잡은 포켓몬
+  partnerId() {
+    if (SAVE.partner && SAVE.pokedex[SAVE.partner]) return SAVE.partner;
+    const ids = Object.keys(SAVE.pokedex);
+    if (!ids.length) return null;
+    return Number(ids.reduce((a, b) => (SAVE.pokedex[a].first >= SAVE.pokedex[b].first ? a : b)));
   },
 
   catchPct(ballKey) {
@@ -2072,6 +2214,13 @@ const Adventure = {
   render(el) {
     const m = this.mon;
     const info = CONFIG.rarityInfo[m.rarity];
+    const pid = this.partnerId();
+    const stars = m.rarity === "legendary"
+      ? '<div class="star-overlay">' +
+        [[8,12],[30,6],[55,15],[75,8],[88,22],[18,28]].map((p, i) =>
+          '<span style="left:' + p[0] + "%;top:" + p[1] + "%;animation-delay:" + (i * 0.3) + 's">✨</span>').join("") +
+        "</div>"
+      : "";
     el.innerHTML =
       '<div class="topbar">' +
         '<button class="icon-btn" data-act="go-home">🏠</button>' +
@@ -2079,30 +2228,51 @@ const Adventure = {
         '<span class="spacer"></span>' +
         '<span class="chip">야생 포켓몬 출현!</span>' +
       "</div>" +
-      '<div class="adv-scene' + (m.rarity === "legendary" ? " legendary" : "") + '" id="adv-scene">' +
-        '<span class="grass" style="left:8%">🌿</span><span class="grass" style="right:10%">🌿</span><span class="grass" style="left:45%;bottom:2px">🌱</span>' +
-        '<div class="adv-mon" id="adv-mon">' +
-          '<img src="' + spriteUrl(m.id) + '" alt="" onerror="Adventure.imgFail(this)">' +
-          '<div><span class="mname">' + esc(m.name) + '</span><span class="rarity-badge ' + info.badge + '">' + info.ko + "</span></div>" +
+      '<div class="adv-scene ' + this.sceneClass(m.id) + '" id="adv-scene">' +
+        stars +
+        '<div class="battle-platform platform-enemy"></div>' +
+        '<div class="battle-platform platform-ally"></div>' +
+        '<div class="grass-patch" id="grass-patch">🌿</div>' +
+        '<div class="adv-enemy hidden" id="adv-mon">' +
+          '<img data-mid="' + m.id + '" src="' + gifUrl(m.id) + '" alt="" onerror="advImgFail(this)">' +
         "</div>" +
+        '<div class="nameplate hidden" id="nameplate">' +
+          '<div class="np-name">' + esc(m.name) + ' <span class="rarity-badge ' + info.badge + '">' + info.ko + "</span></div>" +
+          '<div>' + typeChipsHtml(m.id) + "</div>" +
+          '<div class="hpwrap"><span class="hplabel">HP</span><div class="hpbar"><i id="enemy-hp"></i></div></div>' +
+        "</div>" +
+        (pid
+          ? '<div class="adv-ally hidden" id="adv-ally">' +
+            '<img data-mid="' + pid + '" src="' + gifBackUrl(pid) + '" alt="" onerror="allyImgFail(this)">' +
+            '<div class="ally-label">' + esc(POKEMON_KO[pid - 1]) + "</div></div>"
+          : "") +
+        '<div class="battle-dialog" id="battle-dialog"></div>' +
       "</div>" +
-      '<div class="adv-msg" id="adv-msg">어떤 볼을 던질까?</div>' +
-      '<div id="adv-controls">' + this.ballRowHtml() + "</div>";
+      '<div id="adv-controls" class="hidden">' + this.ballRowHtml() + "</div>";
 
-    SFX.fanfare(m.rarity === "legendary" ? "legendary" : "common");
+    // 인카운터 연출: 부스럭 → 등장 → 볼 선택
+    this.busy = true;
+    typeText($("#battle-dialog"), "부스럭... 부스럭...");
+    later(() => {
+      $("#grass-patch").classList.add("hidden");
+      $("#adv-mon").classList.remove("hidden");
+      $("#nameplate").classList.remove("hidden");
+      const ally = $("#adv-ally");
+      if (ally) ally.classList.remove("hidden");
+      SFX.fanfare(m.rarity === "legendary" ? "legendary" : "common");
+      SFX.bgmStart();
+      typeText($("#battle-dialog"), "앗! 야생 " + m.name + "이(가) 나타났다!");
+    }, 1400);
+    later(() => {
+      typeText($("#battle-dialog"), "어떤 볼을 던질까?");
+      $("#adv-controls").classList.remove("hidden");
+      this.busy = false;
+    }, 3000);
+
     el.addEventListener("click", (e) => {
       const bb = e.target.closest("[data-throw]");
       if (bb && !this.busy) this.throwBall(bb.dataset.throw);
     });
-  },
-
-  imgFail(img) {
-    this.imgOk = false;
-    const holder = img.parentElement;
-    img.remove();
-    if (holder && !holder.querySelector(".fallback")) {
-      holder.insertAdjacentHTML("afterbegin", '<div class="fallback">❔</div>');
-    }
   },
 
   throwBall(ballKey) {
@@ -2115,63 +2285,72 @@ const Adventure = {
     const m = this.mon;
     const scene = $("#adv-scene");
     const monEl = $("#adv-mon");
-    const msg = $("#adv-msg");
+    const dialog = $("#battle-dialog");
     const controls = $("#adv-controls");
     controls.style.opacity = ".35";
     controls.style.pointerEvents = "none";
-    msg.textContent = CONFIG.balls[ballKey].name + " 던진다~!";
+    typeText(dialog, CONFIG.balls[ballKey].name + " 던진다~!");
     SFX.throwBall();
 
-    // 1) 볼 날아가기
+    // 1) 볼 날아가기: 아군 자리 → 상대 위치로 (JS 계산 포물선)
     const ball = document.createElement("div");
-    ball.className = "thrown-ball";
+    ball.className = "battle-ball";
     ball.textContent = CONFIG.balls[ballKey].emoji;
     scene.appendChild(ball);
+    const sr = scene.getBoundingClientRect();
+    const er = monEl.getBoundingClientRect();
+    const sx = sr.width * 0.16, sy = sr.height * 0.62;
+    ball.style.left = sx + "px";
+    ball.style.top = sy + "px";
+    const dx = (er.left - sr.left + er.width / 2) - sx - 17;
+    const dy = (er.top - sr.top + er.height / 2) - sy - 17;
+    requestAnimationFrame(() => { ball.style.transform = "translate(" + dx + "px," + dy + "px) rotate(720deg)"; });
 
     later(() => {
-      // 2) 포켓몬이 볼 속으로 → 흔들림
+      // 2) 포켓몬이 볼 속으로 빨려 들어감
       ball.remove();
-      monEl.style.visibility = "hidden";
-      const wob = document.createElement("div");
-      wob.className = "wobbling";
-      wob.textContent = CONFIG.balls[ballKey].emoji;
-      wob.style.position = "relative";
-      scene.appendChild(wob);
-      msg.textContent = "두근두근…";
-
-      const shakes = m.rarity === "common" ? 1 : m.rarity === "rare" ? 2 : 3;
-      for (let i = 0; i < shakes; i++) later(() => SFX.shake(), 300 + i * 700);
-
+      const img = monEl.querySelector("img, .fallback");
+      if (img) img.classList.add("sucked");
       later(() => {
-        wob.remove();
-        if (success) this.caught(scene, msg);
-        else this.escaped(scene, monEl, msg, controls);
-      }, 500 + shakes * 750);
+        const wob = document.createElement("div");
+        wob.className = "wobbling";
+        wob.textContent = CONFIG.balls[ballKey].emoji;
+        monEl.appendChild(wob);
+        typeText(dialog, "두근두근…");
+        const shakes = m.rarity === "common" ? 1 : m.rarity === "rare" ? 2 : 3;
+        for (let i = 0; i < shakes; i++) later(() => SFX.shake(), 250 + i * 700);
+        later(() => {
+          wob.remove();
+          if (success) this.caught(monEl, dialog);
+          else this.escaped(monEl, dialog, controls);
+        }, 400 + shakes * 750);
+      }, 380);
     }, 700);
   },
 
-  caught(scene, msg) {
+  caught(monEl, dialog) {
     const m = this.mon;
     const isNew = !SAVE.pokedex[m.id];
     const entry = SAVE.pokedex[m.id] || { count: 0, first: Date.now() };
     entry.count++;
     SAVE.pokedex[m.id] = entry;
     SAVE.stats.caught++;
+    if (!SAVE.partner) SAVE.partner = m.id; // 첫 포켓몬은 자동으로 파트너
     saveNow();
+    SFX.bgmStop();
     SFX.click();
-    msg.textContent = "찰칵! 잡았다!!";
+    typeText(dialog, "찰칵! " + m.name + "을(를) 잡았다!!");
     const still = document.createElement("div");
     still.className = "catch-flash";
-    still.style.fontSize = "64px";
     still.textContent = "🔴";
-    scene.appendChild(still);
+    monEl.appendChild(still);
     later(() => SFX.catchOk(), 250);
     later(() => {
       SFX.fanfare(m.rarity);
       if (m.rarity === "legendary" || m.rarity === "unique") fxConfetti(["🌟","✨","🎆","💫"], 20);
       else fxConfetti(["🎉","⭐","✨"]);
       this.showCaughtModal(isNew, entry.count);
-    }, 800);
+    }, 900);
   },
 
   showCaughtModal(isNew, count) {
@@ -2198,17 +2377,19 @@ const Adventure = {
     if (total >= TOTAL_POKEMON) later(() => toast("👑 도감 " + TOTAL_POKEMON + "마리 완성!! 축하해요!!", 4000), 800);
   },
 
-  escaped(scene, monEl, msg, controls) {
+  escaped(monEl, dialog, controls) {
     const m = this.mon;
     SFX.escape();
-    msg.textContent = "앗! 나와버렸다!";
-    monEl.style.visibility = "visible";
-    monEl.classList.remove("catch-flash");
+    typeText(dialog, "앗! 나와버렸다!");
+    const img = monEl.querySelector("img, .fallback");
+    if (img) { img.classList.remove("sucked"); img.classList.add("reappear"); }
     const flee = Math.random() * 100 < CONFIG.fleeRate[m.rarity];
     later(() => {
+      if (img) img.classList.remove("reappear");
       if (flee) {
-        monEl.classList.add("mon-escape");
-        msg.textContent = esc(m.name) + " 이(가) 도망갔다! 💨";
+        SFX.bgmStop();
+        if (img) img.classList.add("fleeing");
+        typeText(dialog, "야생 " + m.name + "이(가) 도망갔다! 💨");
         later(() => {
           const ballsLeft = this.ballTotal();
           controls.innerHTML =
@@ -2223,21 +2404,22 @@ const Adventure = {
       } else {
         const ballsLeft = this.ballTotal();
         if (ballsLeft <= 0) {
-          msg.textContent = "볼이 다 떨어졌어… " + esc(m.name) + " 이(가) 사라졌다 💨";
+          SFX.bgmStop();
+          typeText(dialog, "볼이 다 떨어졌어… " + m.name + "이(가) 사라졌다 💨");
           controls.innerHTML =
             '<div class="result-btns">' +
             (SAVE.coins >= CONFIG.balls.poke.price ? '<button class="btn yellow big" data-act="go-shop">🛍️ 상점 가기</button>' : '<button class="btn big" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>') +
             '<button class="btn ghost" data-act="go-home">🏠 홈으로</button>' +
             "</div>";
         } else {
-          msg.textContent = "아직 안 도망갔어! 한 번 더!";
+          typeText(dialog, "아직 안 도망갔어! 한 번 더!");
           controls.innerHTML = this.ballRowHtml();
         }
         controls.style.opacity = "1";
         controls.style.pointerEvents = "auto";
         this.busy = false;
       }
-    }, 600);
+    }, 650);
   },
 };
 
@@ -2248,6 +2430,13 @@ document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
   switch (b.dataset.act) {
+    case "set-partner": {
+      const pid = Number(b.dataset.pid);
+      SAVE.partner = pid; saveNow();
+      closeModal(); SFX.buy();
+      toast("🤝 " + POKEMON_KO[pid - 1] + "을(를) 파트너로 정했어요! 모험에서 함께해요", 2200);
+      break;
+    }
     case "modal-shop": closeModal(); SFX.tap(); showScreen("shop"); break;
     case "modal-quiz": closeModal(); SFX.tap(); showScreen("category", { mode: "quiz" }); break;
     case "modal-adventure": closeModal(); SFX.tap(); Adventure.encounter(); break;
@@ -2310,7 +2499,12 @@ Screens.pokedex = (el) => {
       (dex ? '<div class="dex-story">💥 <b>좋아하는 기술</b> · ' + esc(dex[1]) + "<br><br>📖 " + esc(dex[2]) + "</div>" : "") +
       '<div class="m-text">' + entry.count + "번 만났어요 · 처음 잡은 날: " +
         d.getFullYear() + "년 " + (d.getMonth() + 1) + "월 " + d.getDate() + "일</div>" +
-      '<div class="m-btns"><button class="btn" data-act="close-modal">닫기</button></div>'
+      '<div class="m-btns" style="flex-direction:column">' +
+        (SAVE.partner === id
+          ? '<button class="btn green" disabled>🤝 지금 나의 파트너!</button>'
+          : '<button class="btn green" data-act="set-partner" data-pid="' + id + '">🤝 파트너로 정하기</button>') +
+        '<button class="btn ghost" data-act="close-modal">닫기</button>' +
+      "</div>"
     );
   });
 };
