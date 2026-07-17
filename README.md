@@ -21,4 +21,4 @@
 ## 저작권 안내
 
 - 개인·가정 학습용 비상업 팬 프로젝트입니다.
-- 포켓몬 이미지는 [PokeAPI sprites](https://github.com/PokeAPI/sprites)에서 불러오며, 포켓몬 관련 저작권은 Nintendo / Creatures Inc. / GAME FREAK inc.에 있습니다.
+- 포켓몬 이미지는 [PokeAPI sprites](https://github.com/PokeAPI/sprites), 울음소리는 [PokeAPI cries](https://github.com/PokeAPI/cries)에서 불러오며, 포켓몬 관련 저작권은 Nintendo / Creatures Inc. / GAME FREAK inc.에 있습니다.
