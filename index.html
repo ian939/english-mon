@@ -548,8 +548,8 @@ const CONFIG = {
     legendary: { ko: "전설",   badge: "rb-legendary" },
   },
   pityRate: 0.5, // 조우 추첨 시 미보유 우선 확률
-  battleQuizBonus: 15, // 조우 영어 시험 첫 시도 정답 시 포획 확률 보너스(%p) — 코인 보상 없음
-  // 시험 정답 시 파트너가 고유 기술 시전 → 파트너 등급별 추가 보너스(%p)
+  // 조우 영어 시험 첫 시도 정답 시: 파트너가 고유 기술 시전 → 등급별 포획 확률 보너스(%p)
+  // 기본 보너스 없음 — 보너스는 파트너 등급에서만 나옴 (코인 보상도 없음)
   partnerBonus: { common: 5, rare: 7, unique: 10, legendary: 15 },
 };
 
@@ -1373,6 +1373,15 @@ function shuffle(arr) {
 }
 const pickN = (arr, n) => shuffle(arr).slice(0, n);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+// 한글 조사 자동 선택: josa("피카츄","이가") → "피카츄가", josa("리자몽","을를") → "리자몽을"
+function josa(word, pair) {
+  const code = word.charCodeAt(word.length - 1);
+  const hasBatchim = code >= 0xAC00 && code <= 0xD7A3 && (code - 0xAC00) % 28 > 0;
+  const map = { "이가": ["이", "가"], "을를": ["을", "를"], "은는": ["은", "는"] };
+  const [a, b] = map[pair] || ["", ""];
+  return word + (hasBatchim ? a : b);
+}
 const $ = sel => document.querySelector(sel);
 
 // 이모지 or 색 원 렌더
@@ -1684,6 +1693,7 @@ document.addEventListener("click", (e) => {
     }
     case "go-shop": SFX.tap(); showScreen("shop"); break;
     case "go-adventure": SFX.tap(); Adventure.go(); break;
+    case "player-flee": Adventure.playerFlee(); break;
     case "go-dex": SFX.tap(); showScreen("pokedex"); break;
     case "quit-game":
       SFX.tap();
@@ -2221,7 +2231,7 @@ document.addEventListener("click", (e) => {
   const r = b.getBoundingClientRect();
   fxFloat(ball.emoji, r.left + r.width / 2, r.top);
   showScreen("shop"); // 갱신
-  toast(ball.name + " 을(를) 샀어요! " + ball.emoji, 1500);
+  toast(josa(ball.name, "을를") + " 샀어요! " + ball.emoji, 1500);
 });
 
 /* ================================================================
@@ -2235,6 +2245,7 @@ const Adventure = {
   quizWord: null,
   quizWrong: false,
   quizDone: false,
+  throwing: false, // 볼 던지는 연출 중 (도망가기 잠금)
 
   ballTotal() { return CONFIG.ballOrder.reduce((s, k) => s + SAVE.balls[k], 0); },
 
@@ -2279,6 +2290,7 @@ const Adventure = {
     this.imgOk = true;
     this.bonus = 0;
     this.quizWord = null; this.quizWrong = false; this.quizDone = false;
+    this.throwing = false;
     [gifUrl(id), spriteUrl(id)].forEach(u => { const pre = new Image(); pre.src = u; });
     showScreen("adventure");
   },
@@ -2338,10 +2350,14 @@ const Adventure = {
     typeText($("#battle-dialog"), isReview
       ? "야생 " + this.mon.name + "의 복습 시험이다! 📝"
       : "야생 " + this.mon.name + "의 영어 시험이다!");
+    const pid = this.partnerId();
+    const title = isReview
+      ? "📝 전에 틀렸던 단어예요!" + (pid ? " 맞히면 " + josa(POKEMON_KO[pid - 1], "이가") + " 기술을 쓴다 ⬆️" : "")
+      : (pid ? "맞히면 " + josa(POKEMON_KO[pid - 1], "이가") + " 기술을 쓴다! ⬆️" : "영어 시험을 통과해 보자!");
     const controls = $("#adv-controls");
     controls.innerHTML =
       '<div class="battle-quiz">' +
-        '<div class="bq-title">' + (isReview ? "📝 전에 틀렸던 단어예요! 맞히면 확률 UP ⬆️" : "맞히면 잡을 확률이 올라가요! ⬆️") + "</div>" +
+        '<div class="bq-title">' + esc(title) + "</div>" +
         '<div class="bq-prompt">' +
           (listenMode
             ? '<button class="speak-btn" id="bq-speak" style="width:54px;height:54px;font-size:25px">🔊</button><span class="bqk">잘 듣고 골라요!</span>'
@@ -2353,10 +2369,40 @@ const Adventure = {
         ).join("") + "</div>" +
       "</div>";
     controls.classList.remove("hidden");
+    $("#adv-flee").classList.remove("hidden"); // 포켓몬이 보이면 언제든 도망 가능 (중복 스킵용)
     if (listenMode) {
       $("#bq-speak").addEventListener("click", () => { SFX.tap(); TTS.speak(w.en); });
       later(() => TTS.speak(w.en), 350);
     }
+  },
+
+  // 플레이어가 도망가기: 볼 소모 없이 조우 종료 → 다음 포켓몬
+  playerFlee() {
+    if (this.throwing) return;
+    this.quizDone = true;
+    this.busy = true;
+    SFX.escape();
+    SFX.bgmStop();
+    Cry.stop();
+    const img = $("#adv-mon") && $("#adv-mon").querySelector("img, .fallback");
+    if (img) img.classList.add("fleeing");
+    typeText($("#battle-dialog"), "무사히 도망쳤다!");
+    later(() => {
+      const ballsLeft = this.ballTotal();
+      showModal(
+        '<div class="m-emoji">🏃💨</div>' +
+        '<div class="m-title">무사히 도망쳤다!</div>' +
+        '<div class="m-text">' + esc(josa(this.mon.name, "이가")) + " 풀숲으로 사라졌어요.<br>다음 포켓몬을 찾아보자!</div>" +
+        '<div class="m-btns" style="flex-direction:column">' +
+          (ballsLeft > 0
+            ? '<button class="btn red" data-act="modal-adventure">🌿 다음 포켓몬 찾기 (⚾ ' + ballsLeft + ")</button>"
+            : (SAVE.coins >= CONFIG.balls.poke.price
+              ? '<button class="btn yellow" data-act="modal-shop">🛍️ 상점 가기</button>'
+              : '<button class="btn" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>')) +
+          '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
+        "</div>"
+      );
+    }, 650);
   },
 
   // 파트너 고유 기술 연출: 런지 → 타입 발사체 → 명중(흔들림+💥) → HP 감소
@@ -2399,7 +2445,7 @@ const Adventure = {
         monEl.appendChild(burst);
         later(() => burst.remove(), 600);
         const hp = $("#enemy-hp");
-        if (hp) hp.style.width = Math.max(20, 100 - totalBonus * 2) + "%";
+        if (hp) hp.style.width = Math.max(20, 100 - totalBonus * 3) + "%";
         later(done, 650);
       }, 480);
     }, 400);
@@ -2435,7 +2481,8 @@ const Adventure = {
       noteWordResult(this.quizWord.id, true);
       SFX.combo();
       const pid = this.partnerId();
-      this.bonus = CONFIG.battleQuizBonus + (pid ? CONFIG.partnerBonus[rarityOf(pid)] : 0);
+      // 보너스는 파트너 등급에서만 (기본 보너스 없음)
+      this.bonus = pid ? CONFIG.partnerBonus[rarityOf(pid)] : 0;
       if (pid) {
         // 파트너가 고유 기술 시전! (등급이 높을수록 보너스 큼)
         later(() => this.partnerAttack(pid, this.bonus, () => {
@@ -2444,10 +2491,8 @@ const Adventure = {
         }), 600);
         typeText(dialog, "정답!");
       } else {
-        const hp = $("#enemy-hp");
-        if (hp) hp.style.width = (100 - this.bonus * 2) + "%";
-        typeText(dialog, "정답! " + this.mon.name + "이(가) 마음을 열었다! 잡을 확률 +" + this.bonus + "% ⬆️");
-        showBallRow(1600);
+        typeText(dialog, "정답! 포켓몬을 잡으면 파트너가 기술로 도와줄 거야!");
+        showBallRow(1800);
       }
     } else {
       SFX.correct();
@@ -2482,7 +2527,10 @@ const Adventure = {
           '<img data-mid="' + m.id + '" src="' + gifUrl(m.id) + '" alt="" onerror="advImgFail(this)">' +
         "</div>" +
         '<div class="nameplate hidden" id="nameplate">' +
-          '<div class="np-name">' + esc(m.name) + ' <span class="rarity-badge ' + info.badge + '">' + info.ko + "</span></div>" +
+          '<div class="np-name">' + esc(m.name) + ' <span class="rarity-badge ' + info.badge + '">' + info.ko + "</span>" +
+            (SAVE.pokedex[m.id]
+              ? ' <span class="rarity-badge rb-common">✔ 있음</span>'
+              : ' <span class="rarity-badge rb-unique">NEW!</span>') + "</div>" +
           '<div>' + typeChipsHtml(m.id) + "</div>" +
           '<div class="hpwrap"><span class="hplabel">HP</span><div class="hpbar"><i id="enemy-hp"></i></div></div>' +
         "</div>" +
@@ -2493,7 +2541,10 @@ const Adventure = {
           : "") +
         '<div class="battle-dialog" id="battle-dialog"></div>' +
       "</div>" +
-      '<div id="adv-controls" class="hidden">' + this.ballRowHtml() + "</div>";
+      '<div id="adv-controls" class="hidden">' + this.ballRowHtml() + "</div>" +
+      '<div id="adv-flee" class="hidden" style="text-align:center;margin-top:10px">' +
+        '<button class="btn ghost" data-act="player-flee" style="font-size:15px;padding:10px 18px">🏃 도망가기 (다른 포켓몬 찾기)</button>' +
+      "</div>";
 
     // 인카운터 연출: 부스럭 → 등장 → 볼 선택
     this.busy = true;
@@ -2507,7 +2558,7 @@ const Adventure = {
       Cry.play(m.id); // 진짜 울음소리로 등장!
       if (m.rarity === "legendary") SFX.fanfare("legendary");
       SFX.bgmStart();
-      typeText($("#battle-dialog"), "앗! 야생 " + m.name + "이(가) 나타났다!");
+      typeText($("#battle-dialog"), "앗! 야생 " + josa(m.name, "이가") + " 나타났다!");
     }, 1400);
     later(() => this.startQuiz(), 3000);
 
@@ -2522,6 +2573,9 @@ const Adventure = {
   throwBall(ballKey) {
     if (SAVE.balls[ballKey] <= 0) return;
     this.busy = true;
+    this.throwing = true;
+    const fleeBtn = $("#adv-flee");
+    if (fleeBtn) { fleeBtn.style.opacity = ".35"; fleeBtn.style.pointerEvents = "none"; }
     SAVE.balls[ballKey]--;
     saveNow();
     const pct = this.catchPct(ballKey);
@@ -2583,7 +2637,7 @@ const Adventure = {
     saveNow();
     SFX.bgmStop();
     SFX.click();
-    typeText(dialog, "찰칵! " + m.name + "을(를) 잡았다!!");
+    typeText(dialog, "찰칵! " + josa(m.name, "을를") + " 잡았다!!");
     const still = document.createElement("div");
     still.className = "catch-flash";
     still.textContent = "🔴";
@@ -2631,10 +2685,12 @@ const Adventure = {
     const flee = Math.random() * 100 < CONFIG.fleeRate[m.rarity];
     later(() => {
       if (img) img.classList.remove("reappear");
+      const fleeBtn = $("#adv-flee");
       if (flee) {
         SFX.bgmStop();
+        if (fleeBtn) fleeBtn.classList.add("hidden");
         if (img) img.classList.add("fleeing");
-        typeText(dialog, "야생 " + m.name + "이(가) 도망갔다! 💨");
+        typeText(dialog, "야생 " + josa(m.name, "이가") + " 도망갔다! 💨");
         later(() => {
           const ballsLeft = this.ballTotal();
           controls.innerHTML =
@@ -2650,7 +2706,8 @@ const Adventure = {
         const ballsLeft = this.ballTotal();
         if (ballsLeft <= 0) {
           SFX.bgmStop();
-          typeText(dialog, "볼이 다 떨어졌어… " + m.name + "이(가) 사라졌다 💨");
+          if (fleeBtn) fleeBtn.classList.add("hidden");
+          typeText(dialog, "볼이 다 떨어졌어… " + josa(m.name, "이가") + " 사라졌다 💨");
           controls.innerHTML =
             '<div class="result-btns">' +
             (SAVE.coins >= CONFIG.balls.poke.price ? '<button class="btn yellow big" data-act="go-shop">🛍️ 상점 가기</button>' : '<button class="btn big" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>') +
@@ -2659,6 +2716,8 @@ const Adventure = {
         } else {
           typeText(dialog, "아직 안 도망갔어! 한 번 더!");
           controls.innerHTML = this.ballRowHtml();
+          this.throwing = false;
+          if (fleeBtn) { fleeBtn.style.opacity = "1"; fleeBtn.style.pointerEvents = "auto"; }
         }
         controls.style.opacity = "1";
         controls.style.pointerEvents = "auto";
@@ -2679,7 +2738,7 @@ document.addEventListener("click", (e) => {
       const pid = Number(b.dataset.pid);
       SAVE.partner = pid; saveNow();
       closeModal(); SFX.buy();
-      toast("🤝 " + POKEMON_KO[pid - 1] + "을(를) 파트너로 정했어요! 모험에서 함께해요", 2200);
+      toast("🤝 " + josa(POKEMON_KO[pid - 1], "을를") + " 파트너로 정했어요! 모험에서 함께해요", 2200);
       break;
     }
     case "modal-shop": closeModal(); SFX.tap(); showScreen("shop"); break;
