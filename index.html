@@ -498,6 +498,12 @@ img { -webkit-user-drag: none; }
   100% { opacity: 0; transform: translateY(46vh) rotate(360deg); }
 }
 
+.ball-icon { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.ball-icon img { image-rendering: pixelated; }
+.ally-hp { width: 66px; height: 6px; background: rgba(255,255,255,.65); border-radius: 99px; margin: 3px auto 0; overflow: hidden; }
+.ally-hp > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .4s; }
+.ally-hp > i.low { background: linear-gradient(90deg, #ff8c42, #ffb703); }
+
 .hidden { display: none !important; }
 .mt-auto { margin-top: auto; }
 .mt8 { margin-top: 8px; } .mt12 { margin-top: 12px; } .mt16 { margin-top: 16px; }
@@ -530,11 +536,13 @@ const CONFIG = {
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
-    poke:   { name: "몬스터볼",  emoji: "🔴", price: 4,  bonus: 30 },
-    super:  { name: "슈퍼볼",    emoji: "🔵", price: 7,  bonus: 40 },
-    hyper:  { name: "하이퍼볼",  emoji: "🟡", price: 10, bonus: 60 },
-    master: { name: "마스터볼",  emoji: "🟣", price: 20, bonus: 80 },
+    poke:   { name: "몬스터볼",  emoji: "🔴", img: "poke-ball",   price: 4,  bonus: 30 },
+    super:  { name: "슈퍼볼",    emoji: "🔵", img: "great-ball",  price: 7,  bonus: 40 },
+    hyper:  { name: "하이퍼볼",  emoji: "🟡", img: "ultra-ball",  price: 10, bonus: 60 },
+    master: { name: "마스터볼",  emoji: "🟣", img: "master-ball", price: 20, bonus: 80 },
   },
+  partnerHealMs: 24 * 60 * 60 * 1000, // 파트너 HP 전체 회복까지 24시간
+  partnerDrain: 10,                    // 기술 1회당 파트너 HP 소모(%)
   ballOrder: ["poke", "super", "hyper", "master"],
 
   // 조우 확률(%) / 기본 포획 확률(%) / 실패 시 도망 확률(%)
@@ -864,7 +872,17 @@ const RARITY_POOL = { common: [], rare: [], unique: [], legendary: [] };
 for (let i = 1; i <= TOTAL_POKEMON; i++) RARITY_POOL[rarityOf(i)].push(i);
 
 const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+const ITEM_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/";
 function spriteUrl(id) { return SPRITE_BASE + "/other/official-artwork/" + id + ".png"; }
+
+// 몬스터볼 아이콘: 게임 아이템 스프라이트, 로드 실패 시 이모지 폴백
+function ballIcon(key, size) {
+  const b = CONFIG.balls[key];
+  return '<span class="ball-icon">' +
+    '<img src="' + ITEM_BASE + b.img + '.png" style="width:' + size + "px;height:" + size + 'px" alt="' + b.name + '" ' +
+    "onerror=\"this.style.display='none';this.nextElementSibling.style.display='inline'\">" +
+    '<span style="display:none;font-size:' + Math.round(size * 0.78) + 'px">' + b.emoji + "</span></span>";
+}
 function gifUrl(id) { return SPRITE_BASE + "/versions/generation-v/black-white/animated/" + id + ".gif"; }
 function gifBackUrl(id) { return SPRITE_BASE + "/versions/generation-v/black-white/animated/back/" + id + ".gif"; }
 function backPngUrl(id) { return SPRITE_BASE + "/back/" + id + ".png"; }
@@ -1185,8 +1203,9 @@ const Storage = {
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
       stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
-      partner: null,  // 모험에 데려가는 파트너 포켓몬 id
-      wordStats: {},  // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
+      partner: null,   // 모험에 데려가는 파트너 포켓몬 id
+      partnerHp: {},   // { id: { hp: 0~100, t: 마지막 기술 사용 시각 } } — 24시간 후 전체 회복
+      wordStats: {},   // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
       welcomed: false,
     };
   },
@@ -1206,6 +1225,7 @@ const Storage = {
         settings: Object.assign(d.settings, data.settings || {}),
         pokedex: data.pokedex || {},
         wordStats: data.wordStats || {},
+        partnerHp: data.partnerHp || {},
       });
     } catch (e) {
       try { localStorage.setItem(this.KEY + "_backup", raw); } catch (e2) {}
@@ -1402,11 +1422,11 @@ function toast(msg, ms = 2200) {
 function showModal(html) { $("#modal-box").innerHTML = html; $("#modal-wrap").classList.remove("hidden"); }
 function closeModal() { $("#modal-wrap").classList.add("hidden"); }
 
-// 떠오르는 텍스트 이펙트 (+1 🪙 등)
-function fxFloat(text, x, y) {
+// 떠오르는 텍스트 이펙트 (+1 🪙, 볼 아이콘 등 — 내부 고정 문자열만 전달)
+function fxFloat(html, x, y) {
   const el = document.createElement("div");
   el.className = "fx-float";
-  el.textContent = text;
+  el.innerHTML = html;
   el.style.left = (x - 20) + "px";
   el.style.top = (y - 20) + "px";
   $("#fx-layer").appendChild(el);
@@ -1469,7 +1489,7 @@ function topbarHtml(opts) {
   return '<div class="topbar">' +
     (o.home ? '<button class="icon-btn" data-act="go-home" aria-label="홈">🏠</button>' : "") +
     '<span class="chip">🪙 <span id="coin-chip">' + SAVE.coins + "</span></span>" +
-    '<span class="chip">⚾ ' + ballTotal + "<small>개</small></span>" +
+    '<span class="chip">' + ballIcon("poke", 20) + " " + ballTotal + "<small>개</small></span>" +
     '<span class="spacer"></span>' +
     '<button class="icon-btn' + (SAVE.settings.sfx ? "" : " off") + '" data-act="toggle-sfx" aria-label="효과음">🔔</button>' +
     '<button class="icon-btn' + (SAVE.settings.tts ? "" : " off") + '" data-act="toggle-tts" aria-label="발음">🗣️</button>' +
@@ -1495,6 +1515,24 @@ const Session = {
     this.lock = false;
   },
 };
+
+// ---- 파트너 HP: 기술 1회당 -10%, 마지막 사용 후 24시간 지나면 전체 회복 ----
+function partnerHp(id) {
+  const e = SAVE.partnerHp[id];
+  if (!e) return 100;
+  if (Date.now() - e.t >= CONFIG.partnerHealMs) {
+    delete SAVE.partnerHp[id];
+    saveNow();
+    return 100;
+  }
+  return e.hp;
+}
+function drainPartner(id) {
+  const hp = Math.max(0, partnerHp(id) - CONFIG.partnerDrain);
+  SAVE.partnerHp[id] = { hp, t: Date.now() };
+  saveNow();
+  return hp;
+}
 
 // ---- 단어별 오답 기록 → 복습 출제 ----
 function noteWordResult(wordId, correct) {
@@ -1571,7 +1609,7 @@ Screens.home = (el) => {
     topbarHtml() +
     '<h1 class="home-title">잉글리시<span class="mon">몬</span> ⚡</h1>' +
     '<p class="home-sub">영어 단어를 맞추고 포켓몬을 모아보자!</p>' +
-    '<div class="home-hero">🔴</div>' +
+    '<div class="home-hero">' + ballIcon("poke", 88) + "</div>" +
     '<div class="home-menu">' +
       '<button class="mode-btn" data-act="pick-cat" data-mode="quiz">' +
         '<span class="mi" style="background:#e3f0ff">📖</span>' +
@@ -1587,7 +1625,7 @@ Screens.home = (el) => {
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn adventure' + (ballTotal > 0 ? " pulse" : "") + '" data-act="go-adventure">' +
         '<span class="mi" style="background:#fff3d1">🌿</span>' +
-        '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (⚾ ' + ballTotal + '개)</div></span>' +
+        '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (' + ballTotal + '개)</div></span>' +
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn" data-act="go-shop">' +
         '<span class="mi" style="background:#f3e8ff">🛍️</span>' +
@@ -1605,7 +1643,7 @@ Screens.home = (el) => {
     later(() => showModal(
       '<div class="m-emoji">🎁</div>' +
       '<div class="m-title">선물이 도착했어요!</div>' +
-      '<div class="m-text">몬스터볼 <b>2개</b>를 받았어요.<br>퀴즈를 풀면 🪙 코인을 모을 수 있고,<br>코인으로 볼을 사서 포켓몬을 잡아요!</div>' +
+      '<div class="m-text">몬스터볼 ' + ballIcon("poke", 22) + '<b>×2</b>를 받았어요.<br>퀴즈를 풀면 🪙 코인을 모을 수 있고,<br>코인으로 볼을 사서 포켓몬을 잡아요!</div>' +
       '<div class="m-btns"><button class="btn green" data-act="close-modal">좋아요!</button></div>'
     ), 400);
   }
@@ -1874,7 +1912,7 @@ Screens.result = (el, params) => {
       '<div class="coin-earn">🪙 +' + Session.coinsEarned + " <small>(모두 " + SAVE.coins + "개)</small></div>" +
       '<div class="result-btns">' +
         (ballTotal > 0
-          ? '<button class="btn red big" data-act="go-adventure">🌿 모험 출발! (⚾ ' + ballTotal + "개)</button>" : "") +
+          ? '<button class="btn red big" data-act="go-adventure">🌿 모험 출발! (' + ballTotal + "개)</button>" : "") +
         (SAVE.coins >= cheapest
           ? '<button class="btn yellow big" data-act="go-shop">🛍️ 몬스터볼 사러 가기</button>' : "") +
         (ballTotal === 0 && SAVE.coins < cheapest
@@ -2196,7 +2234,7 @@ Screens.shop = (el) => {
     const b = CONFIG.balls[k];
     const can = SAVE.coins >= b.price;
     return '<div class="shop-item' + (can ? "" : " cant") + '" id="shop-' + k + '">' +
-      '<span class="se">' + b.emoji + "</span>" +
+      '<span class="se">' + ballIcon(k, 42) + "</span>" +
       "<span><div class='sn'>" + b.name + "</div>" +
       "<div class='sd'>잡을 확률 +" + b.bonus + "%</div>" +
       "<div class='own'>가지고 있어요: <span id='own-" + k + "'>" + SAVE.balls[k] + "</span>개</div></span>" +
@@ -2229,9 +2267,9 @@ document.addEventListener("click", (e) => {
   saveNow();
   SFX.buy();
   const r = b.getBoundingClientRect();
-  fxFloat(ball.emoji, r.left + r.width / 2, r.top);
+  fxFloat(ballIcon(key, 28), r.left + r.width / 2, r.top);
   showScreen("shop"); // 갱신
-  toast(josa(ball.name, "을를") + " 샀어요! " + ball.emoji, 1500);
+  toast(josa(ball.name, "을를") + " 샀어요!", 1500);
 });
 
 /* ================================================================
@@ -2307,12 +2345,12 @@ const Adventure = {
     return this.TYPE_SCENE[t] || "bg-meadow";
   },
 
-  // 파트너: 지정한 포켓몬, 없으면 가장 최근에 잡은 포켓몬
+  // 파트너: 지정한 포켓몬(지치지 않았을 때), 아니면 가장 최근에 잡은 쌩쌩한 포켓몬
   partnerId() {
-    if (SAVE.partner && SAVE.pokedex[SAVE.partner]) return SAVE.partner;
-    const ids = Object.keys(SAVE.pokedex);
+    if (SAVE.partner && SAVE.pokedex[SAVE.partner] && partnerHp(SAVE.partner) > 0) return SAVE.partner;
+    const ids = Object.keys(SAVE.pokedex).map(Number).filter(id => partnerHp(id) > 0);
     if (!ids.length) return null;
-    return Number(ids.reduce((a, b) => (SAVE.pokedex[a].first >= SAVE.pokedex[b].first ? a : b)));
+    return ids.reduce((a, b) => (SAVE.pokedex[a].first >= SAVE.pokedex[b].first ? a : b));
   },
 
   catchPct(ballKey) {
@@ -2326,7 +2364,7 @@ const Adventure = {
       const pct = this.catchPct(k);
       const cls = pct >= 70 ? "pct-good" : pct >= 40 ? "pct-mid" : "pct-bad";
       return '<button class="ball-btn' + (n > 0 ? "" : " none") + '" data-throw="' + k + '">' +
-        '<span class="bi">' + b.emoji + '</span>' +
+        '<span class="bi">' + ballIcon(k, 34) + "</span>" +
         '<span class="bn">' + b.name + " × " + n + "</span>" +
         '<span class="bp ' + cls + '">잡을 확률 ' + pct + "%" + (this.bonus ? ' <span class="pct-up">⬆️</span>' : "") + "</span>" +
         "</button>";
@@ -2395,7 +2433,7 @@ const Adventure = {
         '<div class="m-text">' + esc(josa(this.mon.name, "이가")) + " 풀숲으로 사라졌어요.<br>다음 포켓몬을 찾아보자!</div>" +
         '<div class="m-btns" style="flex-direction:column">' +
           (ballsLeft > 0
-            ? '<button class="btn red" data-act="modal-adventure">🌿 다음 포켓몬 찾기 (⚾ ' + ballsLeft + ")</button>"
+            ? '<button class="btn red" data-act="modal-adventure">🌿 다음 포켓몬 찾기 (' + ballsLeft + "개)</button>"
             : (SAVE.coins >= CONFIG.balls.poke.price
               ? '<button class="btn yellow" data-act="modal-shop">🛍️ 상점 가기</button>'
               : '<button class="btn" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>')) +
@@ -2484,9 +2522,18 @@ const Adventure = {
       // 보너스는 파트너 등급에서만 (기본 보너스 없음)
       this.bonus = pid ? CONFIG.partnerBonus[rarityOf(pid)] : 0;
       if (pid) {
-        // 파트너가 고유 기술 시전! (등급이 높을수록 보너스 큼)
+        // 파트너가 고유 기술 시전! (등급이 높을수록 보너스 큼) → HP -10%
         later(() => this.partnerAttack(pid, this.bonus, () => {
+          const hpLeft = drainPartner(pid);
+          const fill = $("#ally-hp-fill");
+          if (fill) {
+            fill.style.width = hpLeft + "%";
+            fill.classList.toggle("low", hpLeft <= 30);
+          }
           typeText(dialog, "효과는 굉장했다! 잡을 확률 +" + this.bonus + "% ⬆️");
+          if (hpLeft <= 0) {
+            later(() => toast(josa(POKEMON_KO[pid - 1], "은는") + " 지쳤어요 😴 다음엔 다른 파트너와 함께해요! (내일 회복)", 3200), 1300);
+          }
           showBallRow(1400);
         }), 600);
         typeText(dialog, "정답!");
@@ -2537,7 +2584,9 @@ const Adventure = {
         (pid
           ? '<div class="adv-ally hidden" id="adv-ally">' +
             '<img data-mid="' + pid + '" src="' + gifBackUrl(pid) + '" alt="" onerror="allyImgFail(this)">' +
-            '<div class="ally-label">' + esc(POKEMON_KO[pid - 1]) + "</div></div>"
+            '<div class="ally-label">' + esc(POKEMON_KO[pid - 1]) + "</div>" +
+            '<div class="ally-hp"><i id="ally-hp-fill" class="' + (partnerHp(pid) <= 30 ? "low" : "") + '" style="width:' + partnerHp(pid) + '%"></i></div>' +
+            "</div>"
           : "") +
         '<div class="battle-dialog" id="battle-dialog"></div>' +
       "</div>" +
@@ -2561,6 +2610,9 @@ const Adventure = {
       typeText($("#battle-dialog"), "앗! 야생 " + josa(m.name, "이가") + " 나타났다!");
     }, 1400);
     later(() => this.startQuiz(), 3000);
+    if (!pid && Object.keys(SAVE.pokedex).length) {
+      later(() => toast("파트너들이 모두 지쳐서 쉬고 있어요 😴 내일이면 회복돼요!", 3000), 3200);
+    }
 
     el.addEventListener("click", (e) => {
       const bq = e.target.closest("[data-bq]");
@@ -2593,7 +2645,7 @@ const Adventure = {
     // 1) 볼 날아가기: 아군 자리 → 상대 위치로 (JS 계산 포물선)
     const ball = document.createElement("div");
     ball.className = "battle-ball";
-    ball.textContent = CONFIG.balls[ballKey].emoji;
+    ball.innerHTML = ballIcon(ballKey, 34);
     scene.appendChild(ball);
     const sr = scene.getBoundingClientRect();
     const er = monEl.getBoundingClientRect();
@@ -2612,7 +2664,7 @@ const Adventure = {
       later(() => {
         const wob = document.createElement("div");
         wob.className = "wobbling";
-        wob.textContent = CONFIG.balls[ballKey].emoji;
+        wob.innerHTML = ballIcon(ballKey, 54);
         monEl.appendChild(wob);
         typeText(dialog, "두근두근…");
         const shakes = m.rarity === "common" ? 1 : m.rarity === "rare" ? 2 : 3;
@@ -2640,7 +2692,7 @@ const Adventure = {
     typeText(dialog, "찰칵! " + josa(m.name, "을를") + " 잡았다!!");
     const still = document.createElement("div");
     still.className = "catch-flash";
-    still.textContent = "🔴";
+    still.innerHTML = ballIcon("poke", 54);
     monEl.appendChild(still);
     later(() => SFX.catchOk(), 250);
     later(() => {
@@ -2668,7 +2720,7 @@ const Adventure = {
         (isNew ? "🎊 <b>새로운 포켓몬!</b> 도감에 등록했어요!<br>" : "또 만났네! ⭐×" + count + "<br>") +
         "도감: <b>" + total + " / " + TOTAL_POKEMON + "</b></div>" +
       '<div class="m-btns" style="flex-direction:column">' +
-        (ballsLeft > 0 ? '<button class="btn red" data-act="modal-adventure">🌿 또 모험가기 (⚾ ' + ballsLeft + ")</button>" : "") +
+        (ballsLeft > 0 ? '<button class="btn red" data-act="modal-adventure">🌿 또 모험가기 (' + ballsLeft + "개)</button>" : "") +
         '<button class="btn purple" data-act="modal-dex">📕 도감 보기</button>' +
         '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
       "</div>"
@@ -2695,7 +2747,7 @@ const Adventure = {
           const ballsLeft = this.ballTotal();
           controls.innerHTML =
             '<div class="result-btns">' +
-            (ballsLeft > 0 ? '<button class="btn red big" data-act="modal-adventure">🌿 다시 모험가기 (⚾ ' + ballsLeft + ")</button>" : "") +
+            (ballsLeft > 0 ? '<button class="btn red big" data-act="modal-adventure">🌿 다시 모험가기 (' + ballsLeft + "개)</button>" : "") +
             (SAVE.coins >= CONFIG.balls.poke.price ? '<button class="btn yellow" data-act="go-shop">🛍️ 상점 가기</button>' : "") +
             '<button class="btn ghost" data-act="go-home">🏠 홈으로</button>' +
             "</div>";
@@ -2805,9 +2857,11 @@ Screens.pokedex = (el) => {
       '<div class="m-text">' + entry.count + "번 만났어요 · 처음 잡은 날: " +
         d.getFullYear() + "년 " + (d.getMonth() + 1) + "월 " + d.getDate() + "일</div>" +
       '<div class="m-btns" style="flex-direction:column">' +
-        (SAVE.partner === id
-          ? '<button class="btn green" disabled>🤝 지금 나의 파트너!</button>'
-          : '<button class="btn green" data-act="set-partner" data-pid="' + id + '">🤝 파트너로 정하기</button>') +
+        (partnerHp(id) <= 0
+          ? '<button class="btn" disabled>😴 지쳐서 쉬는 중 — 내일 회복돼요</button>'
+          : SAVE.partner === id
+            ? '<button class="btn green" disabled>🤝 지금 나의 파트너! (HP ' + partnerHp(id) + "%)</button>"
+            : '<button class="btn green" data-act="set-partner" data-pid="' + id + '">🤝 파트너로 정하기 (HP ' + partnerHp(id) + "%)</button>") +
         '<button class="btn ghost" data-act="close-modal">닫기</button>' +
       "</div>"
     );
