@@ -358,6 +358,24 @@ img { -webkit-user-drag: none; }
 }
 .battle-ball { position: absolute; font-size: 34px; z-index: 5; transition: transform .65s cubic-bezier(.4,-.3,.65,1); }
 
+.ally-attack { animation: allyLunge .45s ease-out; }
+@keyframes allyLunge { 30% { transform: translate(28px, -16px); } 100% { transform: none; } }
+.fx-projectile {
+  position: absolute; font-size: 30px; z-index: 6;
+  transition: transform .45s ease-in;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.8));
+}
+.enemy-hit { animation: hitShake .5s ease !important; }
+@keyframes hitShake {
+  0%,100% { transform: translate(0); filter: none; }
+  15% { transform: translate(-9px,2px); filter: brightness(2.2); }
+  35% { transform: translate(8px,-2px); }
+  55% { transform: translate(-6px,1px); filter: brightness(1.6); }
+  75% { transform: translate(5px,0); }
+}
+.hit-burst { position: absolute; left: 32%; top: 22%; font-size: 46px; z-index: 6; animation: burstPop .55s ease-out forwards; }
+@keyframes burstPop { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(1.7); opacity: 0; } }
+
 .battle-quiz .bq-title { text-align: center; font-size: 13.5px; font-weight: 800; color: var(--ink-soft); margin-bottom: 8px; }
 .battle-quiz .bq-prompt {
   display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -531,6 +549,8 @@ const CONFIG = {
   },
   pityRate: 0.5, // 조우 추첨 시 미보유 우선 확률
   battleQuizBonus: 15, // 조우 영어 시험 첫 시도 정답 시 포획 확률 보너스(%p) — 코인 보상 없음
+  // 시험 정답 시 파트너가 고유 기술 시전 → 파트너 등급별 추가 보너스(%p)
+  partnerBonus: { common: 5, rare: 7, unique: 10, legendary: 15 },
 };
 
 /* ================================================================
@@ -880,6 +900,12 @@ const TYPE_COLORS = {
   "악":"#705848", "강철":"#B8B8D0", "페어리":"#EE99AC",
 };
 const TYPE_DARK = new Set(["전기", "얼음", "땅", "강철", "페어리"]);
+// 기술 발사체 이펙트 (파트너 대표 타입 기준)
+const TYPE_FX = {
+  "불꽃":"🔥", "물":"💧", "풀":"🍃", "전기":"⚡", "얼음":"❄️", "격투":"👊", "독":"💜",
+  "땅":"🪨", "비행":"🌪️", "에스퍼":"🌀", "벌레":"🕸️", "바위":"🪨", "고스트":"👻",
+  "드래곤":"🐉", "악":"🌑", "강철":"⚙️", "페어리":"✨", "노말":"💥",
+};
 function typeChipsHtml(id) {
   const info = DEX_INFO[id];
   if (!info) return "";
@@ -1232,6 +1258,8 @@ const SFX = {
   coin()    { this.tone(988, 0.08, "square", 0, 0.1); this.tone(1319, 0.16, "square", 0.07, 0.1); },
   buy()     { this.tone(660, 0.1, "triangle", 0); this.tone(880, 0.18, "triangle", 0.1); },
   throwBall(){ this.tone(300, 0.25, "sine", 0, 0.15); this.tone(500, 0.15, "sine", 0.2, 0.12); },
+  attack()  { this.tone(480, 0.09, "sawtooth", 0, 0.14); this.tone(720, 0.12, "sawtooth", 0.07, 0.14); },
+  hit()     { this.tone(150, 0.18, "square", 0, 0.22); this.tone(90, 0.24, "sine", 0.05, 0.2); },
   shake()   { this.tone(120, 0.15, "sine", 0, 0.25); },
   click()   { this.tone(1100, 0.06, "square", 0, 0.12); },
   catchOk() { [523,659,784,1047].forEach((f,i)=>this.tone(f, 0.16, "sine", i*0.1)); },
@@ -2331,6 +2359,52 @@ const Adventure = {
     }
   },
 
+  // 파트너 고유 기술 연출: 런지 → 타입 발사체 → 명중(흔들림+💥) → HP 감소
+  partnerAttack(pid, totalBonus, done) {
+    const scene = $("#adv-scene");
+    const allyEl = $("#adv-ally");
+    const monEl = $("#adv-mon");
+    const dex = DEX_INFO[pid];
+    const moveName = dex ? dex[1].split(" · ")[0] : "몸통박치기";
+    const fx = TYPE_FX[(dex ? dex[0] : "노말").split("·")[0]] || "💥";
+    typeText($("#battle-dialog"), POKEMON_KO[pid - 1] + "의 " + moveName + "!");
+    SFX.attack();
+    if (allyEl) {
+      allyEl.classList.add("ally-attack");
+      later(() => allyEl.classList.remove("ally-attack"), 500);
+    }
+    later(() => {
+      const p = document.createElement("div");
+      p.className = "fx-projectile";
+      p.textContent = fx;
+      scene.appendChild(p);
+      const sr = scene.getBoundingClientRect();
+      const er = monEl.getBoundingClientRect();
+      const ar = allyEl ? allyEl.getBoundingClientRect() : null;
+      const sx = ar ? (ar.left - sr.left + ar.width * 0.7) : sr.width * 0.2;
+      const sy = ar ? (ar.top - sr.top + 8) : sr.height * 0.6;
+      p.style.left = sx + "px";
+      p.style.top = sy + "px";
+      const dx = (er.left - sr.left + er.width / 2) - sx;
+      const dy = (er.top - sr.top + er.height / 2) - sy;
+      requestAnimationFrame(() => { p.style.transform = "translate(" + dx + "px," + dy + "px) scale(1.4)"; });
+      later(() => {
+        p.remove();
+        SFX.hit();
+        const img = monEl.querySelector("img, .fallback");
+        if (img) { img.classList.add("enemy-hit"); later(() => img.classList.remove("enemy-hit"), 600); }
+        const burst = document.createElement("div");
+        burst.className = "hit-burst";
+        burst.textContent = "💥";
+        monEl.appendChild(burst);
+        later(() => burst.remove(), 600);
+        const hp = $("#enemy-hp");
+        if (hp) hp.style.width = Math.max(20, 100 - totalBonus * 2) + "%";
+        later(done, 650);
+      }, 480);
+    }, 400);
+  },
+
   bqAnswer(btn) {
     if (this.quizDone) return;
     const id = Number(btn.dataset.bq);
@@ -2349,24 +2423,37 @@ const Adventure = {
     this.quizDone = true;
     btn.classList.add("right");
     TTS.speak(this.quizWord.en);
+    const showBallRow = (delay) => later(() => {
+      typeText(dialog, "어떤 볼을 던질까?");
+      $("#adv-controls").innerHTML = this.ballRowHtml();
+      this.busy = false;
+    }, delay);
+
     if (!this.quizWrong) {
       SAVE.stats.totalAnswered++;
       SAVE.stats.totalCorrect++;
       noteWordResult(this.quizWord.id, true);
-      this.bonus = CONFIG.battleQuizBonus;
-      const hp = $("#enemy-hp");
-      if (hp) hp.style.width = "65%";
       SFX.combo();
-      typeText(dialog, "정답! " + this.mon.name + "이(가) 마음을 열었다! 잡을 확률 UP! ⬆️");
+      const pid = this.partnerId();
+      this.bonus = CONFIG.battleQuizBonus + (pid ? CONFIG.partnerBonus[rarityOf(pid)] : 0);
+      if (pid) {
+        // 파트너가 고유 기술 시전! (등급이 높을수록 보너스 큼)
+        later(() => this.partnerAttack(pid, this.bonus, () => {
+          typeText(dialog, "효과는 굉장했다! 잡을 확률 +" + this.bonus + "% ⬆️");
+          showBallRow(1400);
+        }), 600);
+        typeText(dialog, "정답!");
+      } else {
+        const hp = $("#enemy-hp");
+        if (hp) hp.style.width = (100 - this.bonus * 2) + "%";
+        typeText(dialog, "정답! " + this.mon.name + "이(가) 마음을 열었다! 잡을 확률 +" + this.bonus + "% ⬆️");
+        showBallRow(1600);
+      }
     } else {
       SFX.correct();
       typeText(dialog, "정답! 다음엔 한 번에 맞혀 보자!");
+      showBallRow(1500);
     }
-    later(() => {
-      typeText(dialog, "어떤 볼을 던질까?");
-      $("#adv-controls").innerHTML = this.ballRowHtml();
-      this.busy = false;
-    }, 1500);
   },
 
   render(el) {
