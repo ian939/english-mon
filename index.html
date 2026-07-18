@@ -411,6 +411,10 @@ img { -webkit-user-drag: none; }
 }
 .dex-story b { color: #1f66d0; }
 
+.throw-left {
+  text-align: center; font-size: 13px; font-weight: 800; color: var(--ink-soft);
+  margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;
+}
 .ball-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .ball-btn {
   border: none; cursor: pointer; border-radius: 20px;
@@ -545,10 +549,10 @@ const CONFIG = {
   partnerDrain: 10,                    // 기술 1회당 파트너 HP 소모(%)
   ballOrder: ["poke", "super", "hyper", "master"],
 
-  // 조우 확률(%) / 기본 포획 확률(%) / 실패 시 도망 확률(%)
+  // 조우 확률(%) / 기본 포획 확률(%) / 등급별 던지기 기회(다 쓰면 도망감)
   encounterRate: { common: 60, rare: 25, unique: 12, legendary: 3 },
   baseCatch:     { common: 40, rare: 20, unique: 10, legendary: 0 },
-  fleeRate:      { common: 20, rare: 25, unique: 30, legendary: 40 },
+  throwLimit:    { common: 3,  rare: 3,  unique: 2,  legendary: 2 },
   rarityInfo: {
     common:    { ko: "일반",   badge: "rb-common" },
     rare:      { ko: "레어",   badge: "rb-rare" },
@@ -2284,6 +2288,7 @@ const Adventure = {
   quizWrong: false,
   quizDone: false,
   throwing: false, // 볼 던지는 연출 중 (도망가기 잠금)
+  throwsLeft: 3,   // 이번 조우에서 남은 던지기 기회 (등급별, 다 쓰면 도망감)
 
   ballTotal() { return CONFIG.ballOrder.reduce((s, k) => s + SAVE.balls[k], 0); },
 
@@ -2329,6 +2334,7 @@ const Adventure = {
     this.bonus = 0;
     this.quizWord = null; this.quizWrong = false; this.quizDone = false;
     this.throwing = false;
+    this.throwsLeft = CONFIG.throwLimit[rarity];
     [gifUrl(id), spriteUrl(id)].forEach(u => { const pre = new Image(); pre.src = u; });
     showScreen("adventure");
   },
@@ -2357,8 +2363,18 @@ const Adventure = {
     return Math.min(100, CONFIG.baseCatch[this.mon.rarity] + CONFIG.balls[ballKey].bonus + this.bonus);
   },
 
+  // 남은 던지기 기회 표시 (쓴 기회는 흐리게)
+  throwsLeftHtml() {
+    const total = CONFIG.throwLimit[this.mon.rarity];
+    let icons = "";
+    for (let i = 0; i < total; i++) {
+      icons += '<span style="' + (i < this.throwsLeft ? "" : "opacity:.22;filter:grayscale(1)") + '">' + ballIcon("poke", 20) + "</span>";
+    }
+    return '<div class="throw-left">던질 수 있는 기회 ' + icons + "</div>";
+  },
+
   ballRowHtml() {
-    return '<div class="ball-row">' + CONFIG.ballOrder.map(k => {
+    return this.throwsLeftHtml() + '<div class="ball-row">' + CONFIG.ballOrder.map(k => {
       const b = CONFIG.balls[k];
       const n = SAVE.balls[k];
       const pct = this.catchPct(k);
@@ -2734,7 +2750,8 @@ const Adventure = {
     typeText(dialog, "앗! 나와버렸다!");
     const img = monEl.querySelector("img, .fallback");
     if (img) { img.classList.remove("sucked"); img.classList.add("reappear"); }
-    const flee = Math.random() * 100 < CONFIG.fleeRate[m.rarity];
+    this.throwsLeft--; // 던지기 기회 1 소모 — 다 쓰면 도망감
+    const flee = this.throwsLeft <= 0;
     later(() => {
       if (img) img.classList.remove("reappear");
       const fleeBtn = $("#adv-flee");
@@ -2742,7 +2759,7 @@ const Adventure = {
         SFX.bgmStop();
         if (fleeBtn) fleeBtn.classList.add("hidden");
         if (img) img.classList.add("fleeing");
-        typeText(dialog, "야생 " + josa(m.name, "이가") + " 도망갔다! 💨");
+        typeText(dialog, "기회를 다 썼다… 야생 " + josa(m.name, "이가") + " 도망갔다! 💨");
         later(() => {
           const ballsLeft = this.ballTotal();
           controls.innerHTML =
@@ -2766,7 +2783,7 @@ const Adventure = {
             '<button class="btn ghost" data-act="go-home">🏠 홈으로</button>' +
             "</div>";
         } else {
-          typeText(dialog, "아직 안 도망갔어! 한 번 더!");
+          typeText(dialog, "아직 안 도망갔어! 한 번 더! (기회 " + this.throwsLeft + "번 남음)");
           controls.innerHTML = this.ballRowHtml();
           this.throwing = false;
           if (fleeBtn) { fleeBtn.style.opacity = "1"; fleeBtn.style.pointerEvents = "auto"; }
