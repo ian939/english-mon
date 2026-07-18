@@ -215,11 +215,19 @@ img { -webkit-user-drag: none; }
   animation: fadeIn .2s ease;
 }
 .spell-card {
-  background: var(--card); border-radius: 26px; padding: 22px 14px 18px;
+  background: var(--card); border-radius: 26px; padding: 16px 14px 18px;
   width: 100%; max-width: 420px; text-align: center;
-  box-shadow: 0 20px 50px rgba(31,53,80,.35);
+  border: 3px solid #ffd166;
+  box-shadow: 0 20px 50px rgba(31,53,80,.35), 0 0 0 5px rgba(255,209,102,.25);
   animation: modalIn .25s cubic-bezier(.2,1.4,.4,1) both;
 }
+.spell-banner {
+  background: linear-gradient(90deg, #ffd166, #ffb703, #ffd166);
+  color: #6b4a00; font-weight: 900; font-size: 17px;
+  border-radius: 999px; padding: 8px 14px; margin-bottom: 6px;
+  animation: pulseGlow 1.6s ease-in-out infinite;
+}
+.spell-sub { font-size: 13.5px; font-weight: 800; color: #b07b00; margin-bottom: 8px; }
 .spell-slots { display: flex; gap: 7px; justify-content: center; margin: 16px 0 18px; flex-wrap: wrap; }
 .spell-slot {
   width: 46px; height: 54px; border-bottom: 4px solid #c3ced9; border-radius: 6px 6px 0 0;
@@ -574,6 +582,8 @@ const CONFIG = {
   comboBonus: 2,         //   보너스 코인 +2
   perfectBonus: 3,       // 짝맞추기 퍼펙트 보너스 코인
   memoryPerfectSlack: 3, // 퍼펙트 판정: 실패 뒤집기 <= 쌍수+3 - 쌍수 = 3회 여유
+  spellChance: 0.3,      // 정답 후 스펠링 보너스 찬스 발동 확률
+  spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -1795,9 +1805,12 @@ document.addEventListener("click", (e) => {
    [S11.5] 스펠링 타일 — 6자 이하 단어를 맞추면 글자 타일로 철자 완성
 ================================================================ */
 const Spelling = {
-  target: "", fullWord: "", idx: 0, wrongStreak: 0, onDone: null,
+  target: "", fullWord: "", idx: 0, wrongStreak: 0, mistakes: 0, onDone: null,
 
   eligible(w) { return /^[a-z]{2,}$/.test(w.en); }, // 알파벳으로만 된 단어 (공백·하이픈 제외)
+
+  // 정답 후 30% 확률로 발동하는 보너스 찬스
+  roll(w) { return this.eligible(w) && Math.random() < CONFIG.spellChance; },
 
   show(w, onDone) {
     // 6글자 초과 단어는 뒤를 미리 채우고 앞 6글자만 입력 (예: helico□□□□ → helico + pter 표시)
@@ -1806,6 +1819,7 @@ const Spelling = {
     this.target = w.en.slice(0, fillCount);
     this.idx = 0;
     this.wrongStreak = 0;
+    this.mistakes = 0;
     this.onDone = onDone;
     const letters = this.target.split("");
     const rest = w.en.slice(fillCount);
@@ -1819,6 +1833,8 @@ const Spelling = {
     wrap.id = "spell-wrap";
     wrap.innerHTML =
       '<div class="spell-card">' +
+        '<div class="spell-banner">✨ 스펠링 보너스 찬스! ✨</div>' +
+        '<div class="spell-sub">한 번도 안 틀리고 완성하면 🪙 +' + CONFIG.spellBonus + "!</div>" +
         '<div class="prompt-emoji" style="font-size:46px">' + emojiHtml(w) + "</div>" +
         '<div class="prompt-ko" style="font-size:20px">' + esc(w.ko) + "</div>" +
         '<div class="prompt-hint">글자를 순서대로 눌러서 영어 단어를 완성해요!</div>' +
@@ -1850,6 +1866,7 @@ const Spelling = {
     } else {
       SFX.wrong();
       this.wrongStreak++;
+      this.mistakes++;
       tile.classList.add("wrong");
       setTimeout(() => tile.classList.remove("wrong"), 420);
       if (this.wrongStreak >= 3) {
@@ -1863,14 +1880,22 @@ const Spelling = {
   complete() {
     SFX.catchOk();
     TTS.speak(this.fullWord);
-    fxConfetti(["✨", "⭐", "🎉"], 8);
+    if (this.mistakes === 0) {
+      // 한 번도 안 틀리고 완성 → 보너스 코인!
+      addCoins(CONFIG.spellBonus, window.innerWidth / 2, window.innerHeight * 0.35);
+      SFX.coin();
+      fxConfetti(["🪙", "✨", "⭐", "🎉"], 12);
+      toast("🎉 한 번에 완성! 보너스 🪙 +" + CONFIG.spellBonus, 2200);
+    } else {
+      fxConfetti(["✨", "⭐"], 8);
+    }
     const done = this.onDone;
     this.onDone = null;
     setTimeout(() => {
       const w = $("#spell-wrap");
       if (w) w.remove();
       if (done) done();
-    }, 950);
+    }, 1000);
   },
 };
 
@@ -2002,8 +2027,8 @@ const Quiz = {
           if (Session.round >= Session.total) Result.show();
           else this.question();
         };
-        // 6자 이하 단어는 스펠링 타일로 철자까지 완성해야 다음 문제로
-        if (Spelling.eligible(w)) Spelling.show(w, proceed);
+        // 30% 확률 보너스 찬스: 스펠링 타일로 철자 완성 (무실수 완성 시 🪙+2)
+        if (Spelling.roll(w)) Spelling.show(w, proceed);
         else proceed();
       }, 1350);
     }, 450);
@@ -2222,7 +2247,7 @@ const Chain = {
           if (Session.round >= Session.total) Result.show();
           else this.question();
         };
-        if (Spelling.eligible(w)) Spelling.show(w, proceed);
+        if (Spelling.roll(w)) Spelling.show(w, proceed);
         else proceed();
       }, 1300);
     }, 400);
