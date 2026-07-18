@@ -204,6 +204,39 @@ img { -webkit-user-drag: none; }
 @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-9px) } 40% { transform: translateX(8px) } 60% { transform: translateX(-6px) } 80% { transform: translateX(4px) } }
 @keyframes rightPop { 0% { transform: scale(1) } 40% { transform: scale(1.08) } 100% { transform: scale(1) } }
 
+.choice .en .fl { color: var(--blue); }
+
+/* ===== 스펠링 타일 팝업 ===== */
+#spell-wrap {
+  position: fixed; inset: 0; background: rgba(31,53,80,.55); z-index: 85;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  animation: fadeIn .2s ease;
+}
+.spell-card {
+  background: var(--card); border-radius: 26px; padding: 22px 14px 18px;
+  width: 100%; max-width: 420px; text-align: center;
+  box-shadow: 0 20px 50px rgba(31,53,80,.35);
+  animation: modalIn .25s cubic-bezier(.2,1.4,.4,1) both;
+}
+.spell-slots { display: flex; gap: 7px; justify-content: center; margin: 16px 0 18px; flex-wrap: wrap; }
+.spell-slot {
+  width: 46px; height: 54px; border-bottom: 4px solid #c3ced9; border-radius: 6px 6px 0 0;
+  background: #f4f8fc; font-size: 32px; font-weight: 900; color: #1f3550;
+  display: flex; align-items: center; justify-content: center;
+}
+.spell-slot.filled { border-bottom-color: var(--good); background: #eafff3; animation: rightPop .35s ease; }
+.spell-tiles { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; }
+.spell-tile {
+  width: 54px; height: 58px; border: none; cursor: pointer; border-radius: 16px;
+  background: var(--card); box-shadow: var(--shadow);
+  font-family: var(--font); font-size: 28px; font-weight: 900; color: var(--ink);
+  transition: transform .1s;
+}
+.spell-tile:active { transform: scale(.9); }
+.spell-tile.used { opacity: .15; pointer-events: none; }
+.spell-tile.wrong { animation: shake .4s ease; background: #ffe3e3; }
+.spell-tile.hint { animation: nudge 1s ease-in-out infinite; background: #d9e9ff; color: var(--blue); }
+
 .answer-banner {
   position: fixed; left: 50%; top: 38%; transform: translate(-50%,-50%) scale(.6);
   background: var(--card); border-radius: 26px; box-shadow: 0 16px 40px rgba(31,53,80,.3);
@@ -1754,6 +1787,82 @@ document.addEventListener("click", (e) => {
 });
 
 /* ================================================================
+   [S11.5] 스펠링 타일 — 6자 이하 단어를 맞추면 글자 타일로 철자 완성
+================================================================ */
+const Spelling = {
+  target: "", idx: 0, wrongStreak: 0, onDone: null,
+
+  eligible(w) { return /^[a-z]{2,6}$/.test(w.en); },
+
+  show(w, onDone) {
+    this.target = w.en;
+    this.idx = 0;
+    this.wrongStreak = 0;
+    this.onDone = onDone;
+    const letters = w.en.split("");
+    const nDecoys = letters.length <= 4 ? 1 : 2; // 함정 글자 1~2개
+    const decoys = [];
+    while (decoys.length < nDecoys) {
+      decoys.push("abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]);
+    }
+    const tiles = shuffle(letters.concat(decoys));
+    const wrap = document.createElement("div");
+    wrap.id = "spell-wrap";
+    wrap.innerHTML =
+      '<div class="spell-card">' +
+        '<div class="prompt-emoji" style="font-size:46px">' + emojiHtml(w) + "</div>" +
+        '<div class="prompt-ko" style="font-size:20px">' + esc(w.ko) + "</div>" +
+        '<div class="prompt-hint">글자를 순서대로 눌러서 영어 단어를 완성해요!</div>' +
+        '<div class="spell-slots">' + letters.map(() => '<div class="spell-slot"></div>').join("") + "</div>" +
+        '<div class="spell-tiles">' + tiles.map(c => '<button class="spell-tile" data-l="' + c + '">' + c + "</button>").join("") + "</div>" +
+      "</div>";
+    document.body.appendChild(wrap);
+    TTS.speak(w.en);
+    wrap.addEventListener("click", e => {
+      const t = e.target.closest(".spell-tile");
+      if (t) this.tap(t);
+    });
+  },
+
+  tap(tile) {
+    const need = this.target[this.idx];
+    if (tile.dataset.l === need) {
+      SFX.click();
+      tile.classList.add("used");
+      const slot = document.querySelectorAll("#spell-wrap .spell-slot")[this.idx];
+      if (slot) { slot.textContent = need; slot.classList.add("filled"); }
+      this.idx++;
+      this.wrongStreak = 0;
+      document.querySelectorAll("#spell-wrap .spell-tile.hint").forEach(t => t.classList.remove("hint"));
+      if (this.idx >= this.target.length) this.complete();
+    } else {
+      SFX.wrong();
+      this.wrongStreak++;
+      tile.classList.add("wrong");
+      setTimeout(() => tile.classList.remove("wrong"), 420);
+      if (this.wrongStreak >= 3) {
+        // 3번 헤매면 다음 글자 타일을 반짝여서 도와줌
+        const next = [...document.querySelectorAll("#spell-wrap .spell-tile:not(.used)")].find(t => t.dataset.l === this.target[this.idx]);
+        if (next) next.classList.add("hint");
+      }
+    }
+  },
+
+  complete() {
+    SFX.catchOk();
+    TTS.speak(this.target);
+    fxConfetti(["✨", "⭐", "🎉"], 8);
+    const done = this.onDone;
+    this.onDone = null;
+    setTimeout(() => {
+      const w = $("#spell-wrap");
+      if (w) w.remove();
+      if (done) done();
+    }, 950);
+  },
+};
+
+/* ================================================================
    [S12] 게임 모드 1 — 단어 퀴즈 (한→영 / 영→한 듣기)
 ================================================================ */
 let lastGame = null; // { restart: fn } — 결과 화면 "한 번 더"용
@@ -1809,8 +1918,9 @@ const Quiz = {
         '<div class="prompt-card"><div class="prompt-emoji">' + emojiHtml(w) + "</div>" +
         '<div class="prompt-ko">' + esc(w.ko) + "</div>" +
         '<div class="prompt-hint">영어로 뭘까요?</div></div>';
+      // 첫 글자를 파란색으로 강조 — "아, t로 시작하는구나!"
       choicesHtml = choices.map(c =>
-        '<button class="choice" data-wid="' + c.id + '"><span class="en">' + esc(c.en) + "</span></button>"
+        '<button class="choice" data-wid="' + c.id + '"><span class="en"><b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) + "</span></button>"
       ).join("");
     } else if (this.qdir === "enko") {
       promptHtml =
@@ -1876,8 +1986,13 @@ const Quiz = {
       TTS.speak(w.en);
       later(() => {
         banner.remove();
-        if (Session.round >= Session.total) Result.show();
-        else this.question();
+        const proceed = () => {
+          if (Session.round >= Session.total) Result.show();
+          else this.question();
+        };
+        // 6자 이하 단어는 스펠링 타일로 철자까지 완성해야 다음 문제로
+        if (Spelling.eligible(w)) Spelling.show(w, proceed);
+        else proceed();
       }, 1350);
     }, 450);
   },
@@ -2091,8 +2206,12 @@ const Chain = {
       document.body.appendChild(banner);
       later(() => {
         banner.remove();
-        if (Session.round >= Session.total) Result.show();
-        else this.question();
+        const proceed = () => {
+          if (Session.round >= Session.total) Result.show();
+          else this.question();
+        };
+        if (Spelling.eligible(w)) Spelling.show(w, proceed);
+        else proceed();
       }, 1300);
     }, 400);
   },
