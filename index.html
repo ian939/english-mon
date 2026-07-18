@@ -63,6 +63,8 @@ img { -webkit-user-drag: none; }
   white-space: nowrap;
 }
 .chip small { font-weight: 700; color: var(--ink-soft); font-size: 12px; }
+.mode-chip { border: none; cursor: pointer; font-family: var(--font); background: linear-gradient(135deg, #e3f0ff, #f3e8ff); transition: transform .1s; }
+.mode-chip:active { transform: scale(.93); }
 .icon-btn {
   width: 44px; height: 44px; border-radius: 50%; border: none;
   background: var(--card); box-shadow: var(--shadow);
@@ -842,6 +844,193 @@ const WORDS = [];
 }
 
 /* ================================================================
+   [S4B] 부모 모드 단어 — TOEFL 고난도 500개 (id 1001~)
+   추상어가 많아 이모지는 카테고리 대표 아이콘을 기본으로 사용
+================================================================ */
+const CATEGORIES_ADULT = [
+  { key: "acad", ko: "학문·연구",     emoji: "📚" },
+  { key: "soc",  ko: "사회·정치",     emoji: "🏛️" },
+  { key: "econ", ko: "경제·비즈니스", emoji: "💼" },
+  { key: "sci",  ko: "자연·과학",     emoji: "🔬" },
+  { key: "med",  ko: "인체·의학",     emoji: "🩺" },
+  { key: "law",  ko: "법·규범",       emoji: "⚖️" },
+  { key: "emo",  ko: "감정·성격",     emoji: "🎭" },
+  { key: "act",  ko: "행동·변화",     emoji: "🏃" },
+  { key: "qual", ko: "성질·상태",     emoji: "✨" },
+  { key: "deg",  ko: "시간·정도",     emoji: "⏳" },
+];
+
+const WORDS_ADULT = [];
+{
+  let _id = 1000;
+  const catEmoji = {};
+  CATEGORIES_ADULT.forEach(c => { catEmoji[c.key] = c.emoji; });
+  const add = (cat, list) => list.forEach(e => {
+    WORDS_ADULT.push({ id: ++_id, en: e[0], ko: e[1], emoji: e[2] || catEmoji[cat], cat, color: null });
+  });
+
+  add("acad", [
+    ["hypothesis","가설"], ["thesis","논지"], ["empirical","경험적인"], ["analyze","분석하다"],
+    ["synthesis","종합"], ["citation","인용"], ["plagiarism","표절"], ["curriculum","교육과정"],
+    ["pedagogy","교육학"], ["dissertation","박사 논문"], ["criterion","기준"], ["paradigm","패러다임"],
+    ["methodology","방법론"], ["qualitative","질적인"], ["quantitative","양적인"], ["variable","변수"],
+    ["correlation","상관관계"], ["causation","인과관계"], ["inference","추론"], ["deduce","연역하다"],
+    ["postulate","가정하다"], ["premise","전제"], ["rebut","반박하다"], ["refute","논박하다"],
+    ["corroborate","확증하다"], ["substantiate","입증하다"], ["scrutinize","면밀히 조사하다"], ["discern","분별하다"],
+    ["elucidate","명쾌히 설명하다"], ["expound","상세히 설명하다"], ["annotate","주석을 달다"], ["compile","엮다"],
+    ["archive","기록 보관소"], ["anthology","선집"], ["excerpt","발췌"], ["abstract","초록·추상적인"],
+    ["synopsis","개요"], ["connotation","함축"], ["denote","나타내다"], ["etymology","어원"],
+    ["lexicon","어휘 목록"], ["rhetoric","수사법"], ["discourse","담론"], ["cognition","인지"],
+    ["heuristic","발견적 방법의"], ["axiom","공리"], ["anomaly","이례적인 것"], ["conjecture","추측"],
+    ["scholarly","학구적인"], ["erudite","박식한"],
+  ]);
+
+  add("soc", [
+    ["advocate","옹호하다"], ["consensus","합의"], ["legislation","입법"], ["sovereignty","주권"],
+    ["bureaucracy","관료제"], ["constituency","유권자(선거구)"], ["referendum","국민투표"], ["coalition","연합"],
+    ["partisan","당파적인"], ["ideology","이념"], ["propaganda","선전"], ["censorship","검열"],
+    ["suffrage","참정권"], ["emancipation","해방"], ["segregation","분리 정책"], ["assimilate","동화되다"],
+    ["immigrate","이주해 오다"], ["emigrate","이주해 가다"], ["demographic","인구통계의"], ["urbanization","도시화"],
+    ["infrastructure","사회 기반 시설"], ["municipal","시의"], ["diplomat","외교관"], ["treaty","조약"],
+    ["alliance","동맹"], ["embargo","금수 조치"], ["sanction","제재"], ["insurgent","반란자"],
+    ["regime","정권"], ["tyranny","폭정"], ["oppress","억압하다"], ["dissent","반대 의견"],
+    ["activist","활동가"], ["petition","청원"], ["mandate","권한 위임"], ["incumbent","현직자"],
+    ["nominee","후보 지명자"], ["inaugurate","취임시키다"], ["impeach","탄핵하다"], ["amend","개정하다"],
+    ["ratify","비준하다"], ["repeal","폐지하다"], ["secede","탈퇴하다"], ["hierarchy","위계"],
+    ["egalitarian","평등주의의"], ["welfare","복지"], ["philanthropy","자선 활동"], ["altruism","이타주의"],
+    ["solidarity","연대"], ["marginalize","소외시키다"],
+  ]);
+
+  add("econ", [
+    ["revenue","수익"], ["expenditure","지출"], ["fluctuate","변동하다"], ["inflation","물가 상승"],
+    ["recession","경기 침체"], ["subsidy","보조금"], ["tariff","관세"], ["monopoly","독점"],
+    ["entrepreneur","기업가"], ["venture","모험적 사업"], ["dividend","배당금"], ["portfolio","자산 구성"],
+    ["asset","자산"], ["liability","부채"], ["collateral","담보"], ["mortgage","주택 담보 대출"],
+    ["audit","회계 감사"], ["ledger","장부"], ["procurement","조달"], ["logistics","물류"],
+    ["inventory","재고"], ["wholesale","도매"], ["retail","소매"], ["commodity","상품·원자재"],
+    ["merger","합병"], ["acquisition","인수"], ["bankruptcy","파산"], ["insolvent","지급 불능의"],
+    ["lucrative","수익성 좋은"], ["frugal","절약하는"], ["austerity","긴축"], ["depreciate","가치가 떨어지다"],
+    ["appreciate","가치가 오르다"], ["negotiate","협상하다"], ["leverage","지렛대 효과"], ["incentive","유인책"],
+    ["quota","할당량"], ["surplus","흑자"], ["deficit","적자"], ["remittance","송금"],
+    ["payroll","급여 대장"], ["layoff","정리 해고"], ["outsource","외주를 주다"], ["patent","특허"],
+    ["trademark","상표"], ["franchise","가맹 사업"], ["stakeholder","이해관계자"], ["shareholder","주주"],
+    ["subsidiary","자회사"], ["conglomerate","복합 대기업"],
+  ]);
+
+  add("sci", [
+    ["photosynthesis","광합성"], ["erosion","침식"], ["sediment","퇴적물"], ["catalyst","촉매"],
+    ["molecule","분자"], ["compound","화합물"], ["velocity","속도"], ["momentum","운동량"],
+    ["friction","마찰"], ["inertia","관성"], ["buoyancy","부력"], ["density","밀도"],
+    ["condensation","응결"], ["evaporation","증발"], ["precipitation","강수"], ["humidity","습도"],
+    ["latitude","위도"], ["longitude","경도"], ["equator","적도"], ["hemisphere","반구"],
+    ["glacier","빙하"], ["seismic","지진의"], ["tectonic","지각 변동의"], ["topography","지형"],
+    ["ecosystem","생태계"], ["biodiversity","생물 다양성"], ["habitat","서식지"], ["predator","포식자"],
+    ["parasite","기생 생물"], ["symbiosis","공생"], ["mutation","돌연변이"], ["genome","유전체"],
+    ["chromosome","염색체"], ["enzyme","효소"], ["bacteria","세균"], ["fungus","균류"],
+    ["spore","포자"], ["pollinate","수분하다"], ["germinate","싹트다"], ["hibernate","동면하다"],
+    ["nocturnal","야행성의"], ["extinct","멸종한"], ["fossil","화석"], ["radiation","방사선"],
+    ["isotope","동위원소"], ["alloy","합금"], ["corrode","부식하다"], ["combustion","연소"],
+    ["emit","방출하다"], ["trajectory","궤적"],
+  ]);
+
+  add("med", [
+    ["metabolism","신진대사"], ["immune","면역의"], ["vaccine","백신"], ["antibody","항체"],
+    ["antibiotic","항생제"], ["chronic","만성의"], ["acute","급성의"], ["symptom","증상"],
+    ["diagnosis","진단"], ["prognosis","예후"], ["therapy","치료법"], ["remedy","치료약"],
+    ["placebo","위약"], ["epidemic","유행병"], ["pandemic","세계적 유행병"], ["contagious","전염되는"],
+    ["quarantine","격리"], ["incubation","잠복기"], ["pathogen","병원체"], ["respiratory","호흡의"],
+    ["cardiac","심장의"], ["artery","동맥"], ["vein","정맥"], ["capillary","모세혈관"],
+    ["hemoglobin","헤모글로빈"], ["cholesterol","콜레스테롤"], ["glucose","포도당"], ["insulin","인슐린"],
+    ["hormone","호르몬"], ["gland","분비샘"], ["neuron","신경 세포"], ["synapse","시냅스"],
+    ["cerebral","대뇌의"], ["spinal","척추의"], ["skeletal","골격의"], ["ligament","인대"],
+    ["tendon","힘줄"], ["cartilage","연골"], ["marrow","골수"], ["transplant","이식"],
+    ["transfusion","수혈"], ["anesthesia","마취"], ["incision","절개"], ["suture","봉합"],
+    ["rehabilitation","재활"], ["hygiene","위생"], ["nutrition","영양"], ["deficiency","결핍"],
+    ["fatigue","피로"], ["insomnia","불면증"],
+  ]);
+
+  add("law", [
+    ["verdict","평결"], ["statute","법령"], ["comply","준수하다"], ["plaintiff","원고"],
+    ["defendant","피고"], ["prosecutor","검사"], ["attorney","변호사"], ["testimony","증언"],
+    ["testify","증언하다"], ["alibi","알리바이"], ["indict","기소하다"], ["acquit","무죄를 선고하다"],
+    ["convict","유죄를 선고하다"], ["penalty","처벌"], ["felony","중죄"], ["misdemeanor","경범죄"],
+    ["custody","구금·양육권"], ["parole","가석방"], ["probation","집행유예"], ["bail","보석금"],
+    ["subpoena","소환장"], ["litigation","소송"], ["arbitration","중재"], ["mediation","조정"],
+    ["jurisdiction","관할권"], ["precedent","판례"], ["constitution","헌법"], ["clause","조항"],
+    ["provision","규정"], ["breach","위반"], ["infringe","침해하다"], ["negligence","과실"],
+    ["fraud","사기"], ["embezzle","횡령하다"], ["bribery","뇌물 수수"], ["perjury","위증"],
+    ["defamation","명예 훼손"], ["slander","비방"], ["forgery","위조"], ["smuggle","밀수하다"],
+    ["abduct","납치하다"], ["coerce","강요하다"], ["deter","저지하다"], ["prohibit","금지하다"],
+    ["decree","포고령"], ["enforce","집행하다"], ["exempt","면제된"], ["amnesty","사면"],
+    ["plea","탄원"], ["tribunal","재판소"],
+  ]);
+
+  add("emo", [
+    ["melancholy","우울"], ["benevolent","자애로운"], ["arrogant","오만한"], ["humble","겸손한"],
+    ["candid","솔직한"], ["cynical","냉소적인"], ["skeptical","회의적인"], ["sanguine","낙천적인"],
+    ["apathetic","무관심한"], ["empathy","공감"], ["compassion","연민"], ["contempt","경멸"],
+    ["disdain","업신여김"], ["resentment","분개"], ["grudge","원한"], ["remorse","양심의 가책"],
+    ["nostalgia","향수(그리움)"], ["yearn","갈망하다"], ["despair","절망"], ["anguish","고뇌"],
+    ["dread","몹시 두려워하다"], ["apprehensive","걱정하는"], ["complacent","자기만족의"], ["aloof","냉담한"],
+    ["timid","소심한"], ["audacious","대담한"], ["tenacious","끈질긴"], ["diligent","성실한"],
+    ["prudent","신중한"], ["frivolous","경박한"], ["gullible","잘 속는"], ["naive","순진한"],
+    ["vain","허영심 많은"], ["obstinate","고집 센"], ["irritable","짜증을 잘 내는"], ["hostile","적대적인"],
+    ["amiable","상냥한"], ["cordial","다정한"], ["courteous","정중한"], ["eloquent","유창한"],
+    ["charismatic","카리스마 있는"], ["introvert","내향적인 사람"], ["extrovert","외향적인 사람"], ["temperament","기질"],
+    ["disposition","성향"], ["integrity","진실성"], ["humility","겸손"], ["ecstasy","황홀감"],
+    ["serene","평온한"], ["composure","침착"],
+  ]);
+
+  add("act", [
+    ["undermine","약화시키다"], ["mitigate","완화하다"], ["exacerbate","악화시키다"], ["procrastinate","미루다"],
+    ["implement","실행하다"], ["facilitate","촉진하다"], ["hinder","방해하다"], ["impede","지연시키다"],
+    ["accelerate","가속하다"], ["diminish","줄어들다"], ["deteriorate","악화되다"], ["ameliorate","개선하다"],
+    ["consolidate","통합하다"], ["allocate","할당하다"], ["delegate","위임하다"], ["designate","지정하다"],
+    ["eradicate","근절하다"], ["abolish","폐지하다"], ["curtail","축소하다"], ["suppress","진압하다"],
+    ["provoke","유발하다"], ["instigate","선동하다"], ["evoke","불러일으키다"], ["invoke","호소하다"],
+    ["induce","유도하다"], ["compel","강요하다"], ["oblige","의무를 지우다"], ["adhere","고수하다"],
+    ["abide","(규칙을) 따르다"], ["pursue","추구하다"], ["attain","달성하다"], ["endeavor","노력하다"],
+    ["strive","분투하다"], ["thrive","번창하다"], ["flourish","번영하다"], ["wither","시들다"],
+    ["dwindle","줄어들다"], ["plummet","급락하다"], ["soar","치솟다"], ["surge","급증하다"],
+    ["disperse","흩어지다"], ["converge","모여들다"], ["diverge","갈라지다"], ["oscillate","진동하다"],
+    ["permeate","스며들다"], ["infiltrate","잠입하다"], ["extract","추출하다"], ["fabricate","조작하다"],
+    ["devise","고안하다"], ["yield","산출하다·양보하다"],
+  ]);
+
+  add("qual", [
+    ["ubiquitous","어디에나 있는"], ["meticulous","꼼꼼한"], ["ambiguous","모호한"], ["ambivalent","양가적인"],
+    ["arbitrary","임의적인"], ["coherent","일관된"], ["concise","간결한"], ["comprehensive","포괄적인"],
+    ["intricate","복잡한"], ["elaborate","정교한"], ["rudimentary","기초적인"], ["obsolete","쓸모없어진"],
+    ["archaic","낡은"], ["novel","참신한"], ["unprecedented","전례 없는"], ["conspicuous","눈에 띄는"],
+    ["obscure","잘 알려지지 않은"], ["subtle","미묘한"], ["tangible","만질 수 있는"], ["intangible","무형의"],
+    ["feasible","실현 가능한"], ["viable","실행 가능한"], ["plausible","그럴듯한"], ["credible","믿을 만한"],
+    ["dubious","의심스러운"], ["authentic","진짜의"], ["counterfeit","위조의"], ["immense","엄청난"],
+    ["minuscule","극히 작은"], ["negligible","무시할 만한"], ["abundant","풍부한"], ["scarce","부족한"],
+    ["sparse","드문드문한"], ["redundant","불필요하게 중복된"], ["superfluous","과잉의"], ["indispensable","필수적인"],
+    ["imperative","반드시 해야 하는"], ["mandatory","의무적인"], ["voluntary","자발적인"], ["spontaneous","자연 발생적인"],
+    ["inevitable","불가피한"], ["inherent","내재된"], ["intrinsic","본질적인"], ["static","정적인"],
+    ["volatile","변덕스러운"], ["fragile","취약한"], ["robust","튼튼한"], ["resilient","회복력 있는"],
+    ["versatile","다재다능한"], ["compatible","호환되는"],
+  ]);
+
+  add("deg", [
+    ["simultaneously","동시에"], ["sporadic","산발적인"], ["imminent","임박한"], ["impending","곧 닥칠"],
+    ["subsequent","그 다음의"], ["preceding","앞선"], ["preliminary","예비의"], ["provisional","임시의"],
+    ["perpetual","영원한"], ["perennial","지속되는"], ["transient","일시적인"], ["ephemeral","순식간의"],
+    ["fleeting","스쳐 가는"], ["intermittent","간헐적인"], ["incessant","끊임없는"], ["consecutive","연속적인"],
+    ["concurrent","동시에 일어나는"], ["chronological","시간순의"], ["contemporary","동시대의"], ["medieval","중세의"],
+    ["primitive","원시적인"], ["antiquity","고대"], ["posterity","후세"], ["longevity","장수"],
+    ["duration","지속 기간"], ["interval","간격"], ["epoch","시대"], ["millennium","천 년"],
+    ["approximately","대략"], ["precisely","정확히"], ["virtually","사실상"], ["literally","문자 그대로"],
+    ["merely","단지"], ["scarcely","거의 ~않다"], ["barely","간신히"], ["utterly","완전히"],
+    ["thoroughly","철저히"], ["drastically","급격하게"], ["gradually","점차"], ["marginally","아주 조금"],
+    ["substantially","상당히"], ["predominantly","주로"], ["exclusively","오로지"], ["invariably","변함없이"],
+    ["allegedly","전해진 바로는"], ["presumably","아마도"], ["inadvertently","무심코"], ["deliberately","고의로"],
+    ["threshold","임계점"], ["magnitude","규모"],
+  ]);
+}
+
+/* ================================================================
    [S5] 포켓몬 데이터 — 1~2세대 251마리 (index = 도감번호 - 1)
 ================================================================ */
 const TOTAL_POKEMON = 251;
@@ -1254,6 +1443,7 @@ const Storage = {
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
       stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
+      mode: "kid",     // "kid" 아이 모드 | "parent" 부모 모드(TOEFL) — 코인·볼·도감은 공유
       partner: null,   // 모험에 데려가는 파트너 포켓몬 id
       partnerHp: {},   // { id: { hp: 0~100, t: 마지막 기술 사용 시각 } } — 24시간 후 전체 회복
       wordStats: {},   // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
@@ -1542,6 +1732,9 @@ function topbarHtml(opts) {
     '<span class="chip">🪙 <span id="coin-chip">' + SAVE.coins + "</span></span>" +
     '<span class="chip">' + ballIcon("poke", 20) + " " + ballTotal + "<small>개</small></span>" +
     '<span class="spacer"></span>' +
+    (o.modeToggle
+      ? '<button class="chip mode-chip" data-act="toggle-mode">' + (isKidMode() ? "👶 아이" : "🧑 부모") + "</button>"
+      : "") +
     '<button class="icon-btn' + (SAVE.settings.sfx ? "" : " off") + '" data-act="toggle-sfx" aria-label="효과음">🔔</button>' +
     '<button class="icon-btn' + (SAVE.settings.tts ? "" : " off") + '" data-act="toggle-tts" aria-label="발음">🗣️</button>' +
     "</div>";
@@ -1598,7 +1791,7 @@ function isWeakWord(wordId) {
 }
 function reviewPool() {
   const score = w => { const s = SAVE.wordStats[w.id]; return s.w * 2 - s.c; };
-  return WORDS.filter(w => isWeakWord(w.id)).sort((a, b) => score(b) - score(a));
+  return activeWords().filter(w => isWeakWord(w.id)).sort((a, b) => score(b) - score(a));
 }
 
 function addCoins(n, x, y) {
@@ -1657,9 +1850,11 @@ Screens.home = (el) => {
   const caught = Object.keys(SAVE.pokedex).length;
   const ballTotal = CONFIG.ballOrder.reduce((s, k) => s + SAVE.balls[k], 0);
   el.innerHTML =
-    topbarHtml() +
+    topbarHtml({ modeToggle: true }) +
     '<h1 class="home-title">잉글리시<span class="mon">몬</span> ⚡</h1>' +
-    '<p class="home-sub">영어 단어를 맞추고 포켓몬을 모아보자!</p>' +
+    '<p class="home-sub">' + (isKidMode()
+      ? "영어 단어를 맞추고 포켓몬을 모아보자!"
+      : "🧑 부모 모드 — TOEFL 단어로 함께 도감을 채워요!") + "</p>" +
     '<div class="home-hero">' + ballIcon("poke", 88) + "</div>" +
     '<div class="home-menu">' +
       '<button class="mode-btn" data-act="pick-cat" data-mode="quiz">' +
@@ -1719,8 +1914,8 @@ Screens.category = (el, params) => {
         '<button data-v="hard">🌶️ 어려움 (카드 16장)</button>' +
       "</div>";
   }
-  const cats = CATEGORIES.map(c => {
-    const n = WORDS.filter(w => w.cat === c.key).length;
+  const cats = activeSet().categories.map(c => {
+    const n = activeWords().filter(w => w.cat === c.key).length;
     return '<button class="cat-card" data-act="start-mode" data-cat="' + c.key + '">' +
       '<span class="ce">' + c.emoji + '</span><span class="cn">' + c.ko + '</span><span class="cc">' + n + "개</span></button>";
   }).join("");
@@ -1729,7 +1924,7 @@ Screens.category = (el, params) => {
     '<div class="page-title">' + (isQuiz ? "📖 단어 퀴즈" : "🃏 카드 짝맞추기") + " — 무엇을 연습할까?</div>" +
     segHtml +
     '<div class="cat-grid">' +
-      '<button class="cat-card all" data-act="start-mode" data-cat="all"><span class="ce">🌟</span><span class="cn">전체 (모든 단어 ' + WORDS.length + '개)</span></button>' +
+      '<button class="cat-card all" data-act="start-mode" data-cat="all"><span class="ce">🌟</span><span class="cn">전체 (모든 단어 ' + activeWords().length + '개)</span></button>' +
       cats +
     "</div>";
 
@@ -1784,6 +1979,15 @@ document.addEventListener("click", (e) => {
     case "go-adventure": SFX.tap(); Adventure.go(); break;
     case "player-flee": Adventure.playerFlee(); break;
     case "mode-locked": SFX.tap(); toast("🔒 아직 준비 중이에요! 조금만 기다려 주세요", 1800); break;
+    case "toggle-mode":
+      SAVE.mode = isKidMode() ? "parent" : "kid";
+      saveNow();
+      SFX.buy();
+      showScreen("home");
+      toast(isKidMode()
+        ? "👶 아이 모드! 초등 영어 단어로 출제돼요"
+        : "🧑 부모 모드! TOEFL 단어로 출제돼요 (코인·도감은 함께 모아요)", 2600);
+      break;
     case "go-dex": SFX.tap(); showScreen("pokedex"); break;
     case "quit-game":
       SFX.tap();
@@ -1912,7 +2116,7 @@ const Quiz = {
     SAVE.stats.gamesPlayed.quiz++; saveNow();
     lastGame = { restart: () => Quiz.start(cat, direction) };
     this.direction = direction;
-    this.pool = cat ? WORDS.filter(w => w.cat === cat) : WORDS;
+    this.pool = cat ? activeWords().filter(w => w.cat === cat) : activeWords();
     // 복습 우선: 이 풀에서 자주 틀린 단어 최대 3개를 반드시 포함
     const weak = pickN(this.pool.filter(w => isWeakWord(w.id)), 3);
     const rest = shuffle(this.pool.filter(w => !weak.includes(w)));
@@ -1924,10 +2128,10 @@ const Quiz = {
 
   // 오답 보기: 같은 카테고리 우선 + 부족하면 전체에서
   distractors(word, n) {
-    const sameCat = WORDS.filter(w => w.cat === word.cat && w.id !== word.id);
+    const sameCat = activeWords().filter(w => w.cat === word.cat && w.id !== word.id);
     let picks = pickN(sameCat, n);
     if (picks.length < n) {
-      const rest = WORDS.filter(w => w.id !== word.id && !picks.includes(w));
+      const rest = activeWords().filter(w => w.id !== word.id && !picks.includes(w));
       picks = picks.concat(pickN(rest, n - picks.length));
     }
     return picks;
@@ -1955,9 +2159,11 @@ const Quiz = {
         '<div class="prompt-card"><div class="prompt-emoji">' + emojiHtml(w) + "</div>" +
         '<div class="prompt-ko">' + esc(w.ko) + "</div>" +
         '<div class="prompt-hint">영어로 뭘까요?</div></div>';
-      // 첫 글자를 파란색으로 강조 — "아, t로 시작하는구나!"
+      // 아이 모드: 첫 글자를 파란색으로 강조 — "아, t로 시작하는구나!" (부모 모드는 하드모드)
       choicesHtml = choices.map(c =>
-        '<button class="choice" data-wid="' + c.id + '"><span class="en"><b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) + "</span></button>"
+        '<button class="choice" data-wid="' + c.id + '"><span class="en">' +
+        (isKidMode() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
+        "</span></button>"
       ).join("");
     } else if (this.qdir === "enko") {
       promptHtml =
@@ -2098,13 +2304,24 @@ const lastLetter = w => {
   const s = w.en.toLowerCase().replace(/[^a-z]/g, "");
   return s[s.length - 1];
 };
-const START_INDEX = {};
-WORDS.forEach(w => {
-  const f = firstLetter(w);
-  (START_INDEX[f] = START_INDEX[f] || []).push(w);
-});
+function buildStartIndex(words) {
+  const idx = {};
+  words.forEach(w => {
+    const f = firstLetter(w);
+    (idx[f] = idx[f] || []).push(w);
+  });
+  return idx;
+}
+// 아이/부모 모드별 단어 세트 — 코인·볼·도감은 공유, 출제 단어만 다름
+const WORD_SETS = {
+  kid:    { words: WORDS,       categories: CATEGORIES,       startIndex: buildStartIndex(WORDS) },
+  parent: { words: WORDS_ADULT, categories: CATEGORIES_ADULT, startIndex: buildStartIndex(WORDS_ADULT) },
+};
+const activeSet = () => (SAVE.mode === "parent" ? WORD_SETS.parent : WORD_SETS.kid);
+const activeWords = () => activeSet().words;
+const isKidMode = () => SAVE.mode !== "parent";
 // 제시어로 쓸 수 있는 단어: 끝글자로 시작하는 다른 단어가 1개 이상
-const chainSafe = w => (START_INDEX[lastLetter(w)] || []).some(c => c.id !== w.id);
+const chainSafe = (w, idx) => ((idx || activeSet().startIndex)[lastLetter(w)] || []).some(c => c.id !== w.id);
 
 const Chain = {
   current: null, used: null, wrongCount: 0, answerWord: null,
@@ -2121,15 +2338,15 @@ const Chain = {
 
   pickStarter() {
     // 이어가기 좋은(끝글자 시작 단어가 4개 이상 남은) 단어에서 랜덤
-    const good = WORDS.filter(w =>
+    const good = activeWords().filter(w =>
       !this.used || !this.used.has(w.id)
-    ).filter(w => (START_INDEX[lastLetter(w)] || []).filter(c => c.id !== w.id && (!this.used || !this.used.has(c.id))).length >= 4);
-    const pool = good.length ? good : WORDS.filter(w => chainSafe(w));
+    ).filter(w => (activeSet().startIndex[lastLetter(w)] || []).filter(c => c.id !== w.id && (!this.used || !this.used.has(c.id))).length >= 4);
+    const pool = good.length ? good : activeWords().filter(w => chainSafe(w));
     return pool[Math.floor(Math.random() * pool.length)];
   },
 
   candidatesFor(word) {
-    return (START_INDEX[lastLetter(word)] || []).filter(c => c.id !== word.id && !this.used.has(c.id));
+    return (activeSet().startIndex[lastLetter(word)] || []).filter(c => c.id !== word.id && !this.used.has(c.id));
   },
 
   question() {
@@ -2148,13 +2365,13 @@ const Chain = {
     }
     // 1수 앞보기: 다음에도 이어갈 수 있는 후보 우선
     const forward = cands.filter(c =>
-      (START_INDEX[lastLetter(c)] || []).some(n => n.id !== c.id && !this.used.has(n.id))
+      (activeSet().startIndex[lastLetter(c)] || []).some(n => n.id !== c.id && !this.used.has(n.id))
     );
     this.answerWord = (forward.length ? forward : cands)[Math.floor(Math.random() * (forward.length ? forward.length : cands.length))];
 
     const need = lastLetter(this.current);
     // 오답: 요구 글자로 시작하지 않는 단어, 서로 다른 첫 글자 우선
-    const wrongPool = shuffle(WORDS.filter(w =>
+    const wrongPool = shuffle(activeWords().filter(w =>
       firstLetter(w) !== need && w.id !== this.answerWord.id && !this.used.has(w.id)
     ));
     const wrongs = [];
@@ -2210,11 +2427,11 @@ const Chain = {
       this.wrongCount++;
       SFX.wrong();
       btn.classList.add("wrong");
-      if (this.wrongCount >= 2) {
-        // 힌트: 남은 보기들의 영어 단어 공개 (첫 글자 강조) — 첫 글자 비교 연습
+      if (this.wrongCount >= 2 && isKidMode()) {
+        // 아이 모드 힌트: 남은 보기들의 영어 단어 공개 (첫 글자 강조) — 부모 모드는 힌트 없음
         document.querySelectorAll("#chain-box .choice:not(.wrong)").forEach(el => {
           if (el.querySelector(".en-hint")) return;
-          const w = WORDS.find(x => x.id === Number(el.dataset.wid));
+          const w = activeWords().find(x => x.id === Number(el.dataset.wid));
           if (w) el.insertAdjacentHTML("beforeend",
             '<span class="en-hint"><u>' + esc(w.en[0]) + "</u>" + esc(w.en.slice(1)) + "</span>");
         });
@@ -2259,7 +2476,7 @@ const Chain = {
     const cars = ['<span class="train-car">🚂</span>'];
     let i = 0;
     this.used.forEach(id => {
-      const w = WORDS.find(x => x.id === id);
+      const w = activeWords().find(x => x.id === id);
       cars.push('<span class="train-car" style="animation-delay:' + Math.min(i * 0.03, 0.3) + 's"><span class="te">' + emojiHtml(w) + "</span>" + esc(w.en) + "</span>");
       i++;
     });
@@ -2290,7 +2507,7 @@ const Memory = {
     SAVE.stats.gamesPlayed.memory++; saveNow();
     lastGame = { restart: () => Memory.start(cat, opt) };
 
-    const pool = cat ? WORDS.filter(w => w.cat === cat) : WORDS;
+    const pool = cat ? activeWords().filter(w => w.cat === cat) : activeWords();
     const words = pickN(pool, this.pairs);
     this.deck = shuffle(words.flatMap(w => [
       { word: w, type: "en" }, { word: w, type: "ko" },
@@ -2552,11 +2769,11 @@ const Adventure = {
       w = weak[Math.floor(Math.random() * Math.min(weak.length, 10))];
       isReview = true;
     } else {
-      w = WORDS[Math.floor(Math.random() * WORDS.length)];
+      w = activeWords()[Math.floor(Math.random() * activeWords().length)];
     }
     const listenMode = TTS.ok && SAVE.settings.tts && Math.random() < 0.4;
     this.quizWord = w; this.quizWrong = false; this.quizDone = false;
-    const choices = shuffle([w, ...pickN(WORDS.filter(x => x.id !== w.id), 2)]);
+    const choices = shuffle([w, ...pickN(activeWords().filter(x => x.id !== w.id), 2)]);
     typeText($("#battle-dialog"), isReview
       ? "야생 " + this.mon.name + "의 복습 시험이다! 📝"
       : "야생 " + this.mon.name + "의 영어 시험이다!");
@@ -3045,29 +3262,31 @@ Screens.pokedex = (el) => {
    [S19] 초기화 + 데이터 자가검증
 ================================================================ */
 (function validateData() {
-  // 1) 단어 수 / 영단어 중복
-  const seen = new Set();
-  const dups = [];
-  WORDS.forEach(w => { if (seen.has(w.en)) dups.push(w.en); seen.add(w.en); });
-  console.assert(dups.length === 0, "[데이터] 중복 영단어:", dups);
-  console.log("[잉글리시몬] 단어 " + WORDS.length + "개, 카테고리 " + CATEGORIES.length + "개");
+  // 1) 두 단어 세트 공통 검증: 중복 영단어 / 카테고리 키 / 끝말잇기 체인 커버리지
+  Object.entries(WORD_SETS).forEach(([name, set]) => {
+    const seen = new Set();
+    const dups = [];
+    set.words.forEach(w => { if (seen.has(w.en)) dups.push(w.en); seen.add(w.en); });
+    console.assert(dups.length === 0, "[" + name + "] 중복 영단어:", dups);
+    console.log("[잉글리시몬:" + name + "] 단어 " + set.words.length + "개, 카테고리 " + set.categories.length + "개");
 
-  // 2) 카테고리 키 유효성
-  const catKeys = new Set(CATEGORIES.map(c => c.key));
-  const badCat = WORDS.filter(w => !catKeys.has(w.cat));
-  console.assert(badCat.length === 0, "[데이터] 잘못된 카테고리:", badCat);
+    const catKeys = new Set(set.categories.map(c => c.key));
+    const badCat = set.words.filter(w => !catKeys.has(w.cat));
+    console.assert(badCat.length === 0, "[" + name + "] 잘못된 카테고리:", badCat);
 
-  // 3) 끝말잇기 체인: 모든 끝글자에 대해 시작 단어 수 확인
-  const endCount = {};
-  WORDS.forEach(w => { const l = lastLetter(w); endCount[l] = (endCount[l] || 0) + 1; });
-  const weak = [];
-  Object.keys(endCount).forEach(l => {
-    const starters = (START_INDEX[l] || []).length;
-    if (starters < 2) weak.push(l + "(끝:" + endCount[l] + "/시작:" + starters + ")");
+    const endCount = {};
+    set.words.forEach(w => { const l = lastLetter(w); endCount[l] = (endCount[l] || 0) + 1; });
+    const weak = [];
+    Object.keys(endCount).forEach(l => {
+      const starters = (set.startIndex[l] || []).length;
+      if (starters < 2) weak.push(l + "(끝:" + endCount[l] + "/시작:" + starters + ")");
+    });
+    if (weak.length) console.warn("[체인:" + name + "] 시작 단어가 적은 끝글자(자동 리셋으로 처리됨):", weak.join(", "));
+    const safeCount = set.words.filter(w => chainSafe(w, set.startIndex)).length;
+    console.log("[체인:" + name + "] 제시어 가능 단어 " + safeCount + "/" + set.words.length);
   });
-  if (weak.length) console.warn("[체인] 시작 단어가 적은 끝글자(자동 리셋으로 처리됨):", weak.join(", "));
-  const safeCount = WORDS.filter(chainSafe).length;
-  console.log("[체인] 제시어 가능 단어 " + safeCount + "/" + WORDS.length);
+  console.assert(WORDS_ADULT.length === 500, "[parent] 단어 수 오류:", WORDS_ADULT.length);
+  console.assert(WORDS_ADULT.every(w => w.id >= 1001), "[parent] id 범위 오류");
 
   // 4) 포켓몬 데이터
   console.assert(POKEMON_KO.length === TOTAL_POKEMON, "[포켓몬] 이름 수 오류:", POKEMON_KO.length);
