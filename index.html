@@ -119,6 +119,8 @@ img { -webkit-user-drag: none; }
 .mode-btn .md { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
 .mode-btn .arrow { margin-left: auto; font-size: 20px; color: #c3ced9; }
 .mode-btn.adventure { background: linear-gradient(135deg, #fff6e5, #ffe9c7); }
+.mode-btn.locked { filter: grayscale(.9); opacity: .55; }
+.mode-btn.locked .arrow { font-size: 16px; color: #8fa1b3; }
 .mode-btn.pulse { animation: pulseGlow 1.6s ease-in-out infinite; }
 @keyframes pulseGlow {
   0%,100% { box-shadow: var(--shadow); }
@@ -225,6 +227,8 @@ img { -webkit-user-drag: none; }
   display: flex; align-items: center; justify-content: center;
 }
 .spell-slot.filled { border-bottom-color: var(--good); background: #eafff3; animation: rightPop .35s ease; }
+.spell-slot.prefilled { color: #9fb3c8; background: #eef2f6; border-bottom-color: #dfe6ec; }
+.spell-slots.compact .spell-slot { width: 34px; height: 44px; font-size: 22px; }
 .spell-tiles { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; }
 .spell-tile {
   width: 54px; height: 58px; border: none; cursor: pointer; border-radius: 16px;
@@ -1656,10 +1660,6 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffeede">🚂</span>' +
         '<span><div class="mt">영어 끝말잇기</div><div class="md">마지막 글자로 단어 기차 만들기 · 🪙 벌기</div></span>' +
         '<span class="arrow">▶</span></button>' +
-      '<button class="mode-btn" data-act="pick-cat" data-mode="memory">' +
-        '<span class="mi" style="background:#e8fbef">🃏</span>' +
-        '<span><div class="mt">카드 짝맞추기</div><div class="md">영어와 그림 카드 짝 찾기 · 🪙 벌기</div></span>' +
-        '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn adventure' + (ballTotal > 0 ? " pulse" : "") + '" data-act="go-adventure">' +
         '<span class="mi" style="background:#fff3d1">🌿</span>' +
         '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (' + ballTotal + '개)</div></span>' +
@@ -1672,6 +1672,10 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffe9ec">📕</span>' +
         '<span><div class="mt">포켓몬 도감</div><div class="md">' + caught + " / " + TOTAL_POKEMON + ' 마리 모았어요' + (caught >= TOTAL_POKEMON ? " 👑" : "") + '</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn locked" data-act="mode-locked">' +
+        '<span class="mi" style="background:#e8ecf1">🃏</span>' +
+        '<span><div class="mt">카드 짝맞추기</div><div class="md">준비 중이에요</div></span>' +
+        '<span class="arrow">🔒</span></button>' +
     "</div>" +
     '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI</div>';
 
@@ -1769,6 +1773,7 @@ document.addEventListener("click", (e) => {
     case "go-shop": SFX.tap(); showScreen("shop"); break;
     case "go-adventure": SFX.tap(); Adventure.go(); break;
     case "player-flee": Adventure.playerFlee(); break;
+    case "mode-locked": SFX.tap(); toast("🔒 아직 준비 중이에요! 조금만 기다려 주세요", 1800); break;
     case "go-dex": SFX.tap(); showScreen("pokedex"); break;
     case "quit-game":
       SFX.tap();
@@ -1790,16 +1795,20 @@ document.addEventListener("click", (e) => {
    [S11.5] 스펠링 타일 — 6자 이하 단어를 맞추면 글자 타일로 철자 완성
 ================================================================ */
 const Spelling = {
-  target: "", idx: 0, wrongStreak: 0, onDone: null,
+  target: "", fullWord: "", idx: 0, wrongStreak: 0, onDone: null,
 
-  eligible(w) { return /^[a-z]{2,6}$/.test(w.en); },
+  eligible(w) { return /^[a-z]{2,}$/.test(w.en); }, // 알파벳으로만 된 단어 (공백·하이픈 제외)
 
   show(w, onDone) {
-    this.target = w.en;
+    // 6글자 초과 단어는 뒤를 미리 채우고 앞 6글자만 입력 (예: helico□□□□ → helico + pter 표시)
+    this.fullWord = w.en;
+    const fillCount = Math.min(w.en.length, 6);
+    this.target = w.en.slice(0, fillCount);
     this.idx = 0;
     this.wrongStreak = 0;
     this.onDone = onDone;
-    const letters = w.en.split("");
+    const letters = this.target.split("");
+    const rest = w.en.slice(fillCount);
     const nDecoys = letters.length <= 4 ? 1 : 2; // 함정 글자 1~2개
     const decoys = [];
     while (decoys.length < nDecoys) {
@@ -1813,7 +1822,10 @@ const Spelling = {
         '<div class="prompt-emoji" style="font-size:46px">' + emojiHtml(w) + "</div>" +
         '<div class="prompt-ko" style="font-size:20px">' + esc(w.ko) + "</div>" +
         '<div class="prompt-hint">글자를 순서대로 눌러서 영어 단어를 완성해요!</div>' +
-        '<div class="spell-slots">' + letters.map(() => '<div class="spell-slot"></div>').join("") + "</div>" +
+        '<div class="spell-slots' + (w.en.length > 8 ? " compact" : "") + '">' +
+          letters.map(() => '<div class="spell-slot"></div>').join("") +
+          rest.split("").map(c => '<div class="spell-slot prefilled">' + c + "</div>").join("") +
+        "</div>" +
         '<div class="spell-tiles">' + tiles.map(c => '<button class="spell-tile" data-l="' + c + '">' + c + "</button>").join("") + "</div>" +
       "</div>";
     document.body.appendChild(wrap);
@@ -1850,7 +1862,7 @@ const Spelling = {
 
   complete() {
     SFX.catchOk();
-    TTS.speak(this.target);
+    TTS.speak(this.fullWord);
     fxConfetti(["✨", "⭐", "🎉"], 8);
     const done = this.onDone;
     this.onDone = null;
