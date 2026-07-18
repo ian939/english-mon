@@ -239,6 +239,14 @@ img { -webkit-user-drag: none; }
 .spell-slot.filled { border-bottom-color: var(--good); background: #eafff3; animation: rightPop .35s ease; }
 .spell-slot.prefilled { color: #9fb3c8; background: #eef2f6; border-bottom-color: #dfe6ec; }
 .spell-slots.compact .spell-slot { width: 34px; height: 44px; font-size: 22px; }
+
+/* 문장 문제 */
+.sent-en { font-size: 23px; font-weight: 900; color: #1f3550; margin-top: 8px; line-height: 1.4; }
+.sent-en u { text-decoration: underline 3px var(--accent2); color: var(--blue); }
+.sent-ko { font-size: 14.5px; font-weight: 700; color: var(--ink-soft); margin-top: 7px; }
+.sent-slots { flex-wrap: wrap; gap: 6px; }
+.word-slot { width: auto; min-width: 44px; padding: 0 9px; font-size: 18px; }
+.word-tile { width: auto; min-width: 54px; padding: 0 14px; font-size: 20px; height: 52px; }
 .spell-tiles { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; }
 .spell-tile {
   width: 54px; height: 58px; border: none; cursor: pointer; border-radius: 16px;
@@ -586,6 +594,7 @@ const CONFIG = {
   memoryPerfectSlack: 3, // 퍼펙트 판정: 실패 뒤집기 <= 쌍수+3 - 쌍수 = 3회 여유
   spellChance: 0.3,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
+  sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -1639,7 +1648,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", 
 function josa(word, pair) {
   const code = word.charCodeAt(word.length - 1);
   const hasBatchim = code >= 0xAC00 && code <= 0xD7A3 && (code - 0xAC00) % 28 > 0;
-  const map = { "이가": ["이", "가"], "을를": ["을", "를"], "은는": ["은", "는"] };
+  const map = { "이가": ["이", "가"], "을를": ["을", "를"], "은는": ["은", "는"], "이에": ["이에요", "예요"] };
   const [a, b] = map[pair] || ["", ""];
   return word + (hasBatchim ? a : b);
 }
@@ -2104,7 +2113,69 @@ const Spelling = {
 };
 
 /* ================================================================
-   [S12] 게임 모드 1 — 단어 퀴즈 (한→영 / 영→한 듣기)
+   [S11.6] 문장 문제 — 빈칸 채우기 & 문장 만들기 (아이 모드 전용)
+   문법이 깨지지 않도록 템플릿마다 어울리는 단어 풀을 붙임
+================================================================ */
+const Sentence = {
+  // 셀 수 없는 단어 (a/an 불가)
+  MASS: new Set(["water","milk","juice","tea","rice","bread","cheese","butter","honey","meat","ham",
+    "soup","salad","popcorn","chocolate","ice cream","yogurt","noodle","pizza","money","paper",
+    "homework","math","music","art","hair","blood","corn","broccoli","lettuce","garlic"]),
+  // 항상 복수로 쓰는 단어
+  PLURAL: new Set(["pants","shorts","socks","shoes","boots","glasses","sunglasses","gloves","scissors","chopsticks"]),
+  // "This is a ___"가 어색한 단어
+  EXCLUDE: new Set(["name","question","word","alphabet","body","home"]),
+  tpls: [],
+
+  init() {
+    const byCat = cats => WORDS.filter(w => cats.includes(w.cat));
+    const countable = cats => byCat(cats).filter(w =>
+      !this.MASS.has(w.en) && !this.PLURAL.has(w.en) && !this.EXCLUDE.has(w.en));
+    const T = (en, ko, pool, koHint) => {
+      if (pool.length >= 3) this.tpls.push({ en, ko, pool, koHint: !!koHint });
+    };
+    T("This is {a} ___.", "이것은 {w:이에}.",
+      countable(["animal","fruit","food","house","clothes","vehicle","school","body","place","job"]));
+    T("These are ___.", "이것들은 {w:이에}.", WORDS.filter(w => this.PLURAL.has(w.en)));
+    T("I like ___.", "나는 {w:을를} 좋아해요.",
+      byCat(["sport","weather"]).concat(WORDS.filter(w => this.MASS.has(w.en) && ["food","fruit"].includes(w.cat))));
+    T("I ___ every day.", "", byCat(["verb"]), true);
+    T("I am ___ now.", "나는 지금 {w} 기분이에요.", byCat(["feeling"]).filter(w => w.en !== "love"));
+    T("The ___ is very big.", "{w:은는} 아주 커요.", byCat(["animal"]));
+    T("My bag is ___.", "내 가방은 {w}색이에요.",
+      byCat(["color"]).filter(w => !["rainbow","gold","silver"].includes(w.en)));
+    T("Let's go to the ___.", "우리 {w}에 가자!", byCat(["place"]));
+    T("Today is ___.", "오늘은 {w:이에}.",
+      WORDS.filter(w => ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].includes(w.en)));
+    T("I see {a} ___.", "{w:이가} 보여요!", countable(["animal","vehicle"]));
+    T("I want {a} ___.", "나는 {w:이가} 갖고 싶어요.", countable(["house","clothes","school","fruit","food"]));
+    T("I go to school by ___.", "나는 {w:을를} 타고 학교에 가요.",
+      WORDS.filter(w => ["bus","taxi","train","subway","bicycle","car","scooter"].includes(w.en)));
+  },
+
+  forWord(w) {
+    const c = this.tpls.filter(t => t.pool.some(x => x.id === w.id));
+    return c.length ? c[Math.floor(Math.random() * c.length)] : null;
+  },
+
+  articleOf(w) { return /^[aeiou]/.test(w.en) ? "an" : "a"; },
+
+  make(tpl, w) {
+    const hasArt = tpl.en.includes("{a}");
+    const art = this.articleOf(w);
+    const en = hasArt ? tpl.en.replace("{a}", art) : tpl.en;
+    const enFull = en.replace("___", w.en);
+    const koLine = tpl.koHint
+      ? "힌트: " + w.ko
+      : tpl.ko.replace(/\{w(?::([^}]+))?\}/g, (m, pair) => (pair ? josa(w.ko, pair) : w.ko));
+    const tokens = enFull.replace(/[.!?]/g, "").split(" ");
+    return { tpl, art: hasArt ? art : null, enBlank: en, enFull, koLine, tokens };
+  },
+};
+Sentence.init();
+
+/* ================================================================
+   [S12] 게임 모드 1 — 단어 퀴즈 (한→영 / 영→한 듣기 / 문장)
 ================================================================ */
 let lastGame = null; // { restart: fn } — 결과 화면 "한 번 더"용
 
@@ -2142,6 +2213,19 @@ const Quiz = {
     this.hadWrong = false;
     Session.round++;
     setProgress();
+
+    // 아이 모드: 35% 확률로 문장 문제 (빈칸 채우기 / 문장 만들기)
+    this.qtype = "word";
+    this.sData = null;
+    if (isKidMode() && Math.random() < CONFIG.sentenceChance) {
+      const tpl = Sentence.forWord(this.word);
+      if (tpl) {
+        this.sData = Sentence.make(tpl, this.word);
+        this.qtype = Math.random() < 0.55 ? "sblank" : "sarrange";
+      }
+    }
+    if (this.qtype === "sblank") { this.renderBlank(); return; }
+    if (this.qtype === "sarrange") { this.renderArrange(); return; }
 
     const listenOk = TTS.ok && SAVE.settings.tts;
     this.qdir = this.direction === "mix"
@@ -2196,6 +2280,88 @@ const Quiz = {
     box.querySelectorAll(".choice").forEach(c => c.addEventListener("click", (e) => this.answer(e, c)));
   },
 
+  // 문장 빈칸 채우기: 그림+한글 문장 보고 빈칸에 들어갈 단어 고르기 (3지선다)
+  renderBlank() {
+    const w = this.word, d = this.sData;
+    // 오답은 같은 문법 풀에서 (관사가 있으면 같은 관사끼리 — a/an 힌트 누출 방지)
+    let pool = d.tpl.pool.filter(x => x.id !== w.id);
+    if (d.art) {
+      const same = pool.filter(x => Sentence.articleOf(x) === d.art);
+      if (same.length >= 2) pool = same;
+    }
+    let wrongs = pickN(pool, 2);
+    if (wrongs.length < 2) {
+      wrongs = wrongs.concat(pickN(activeWords().filter(x => x.id !== w.id && !wrongs.includes(x)), 2 - wrongs.length));
+    }
+    const choices = shuffle([w, ...wrongs]);
+    const box = $("#quiz-box");
+    box.innerHTML =
+      '<div class="prompt-card">' +
+        '<div class="prompt-emoji" style="font-size:56px">' + emojiHtml(w) + "</div>" +
+        '<div class="sent-en">' + esc(d.enBlank).replace("___", "<u>___</u>") + "</div>" +
+        '<div class="sent-ko">' + esc(d.koLine) + "</div>" +
+      "</div>" +
+      '<div class="choices list">' + choices.map(c =>
+        '<button class="choice" data-wid="' + c.id + '"><span class="en">' +
+        (isKidMode() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
+        "</span></button>"
+      ).join("") + "</div>";
+    Session.lock = false;
+    box.querySelectorAll(".choice").forEach(c => c.addEventListener("click", (e) => this.answer(e, c)));
+  },
+
+  // 문장 만들기: 단어 타일을 순서대로 눌러 문장 완성
+  renderArrange() {
+    const w = this.word, d = this.sData;
+    this.arrIdx = 0;
+    const tiles = shuffle(d.tokens.slice());
+    const box = $("#quiz-box");
+    box.innerHTML =
+      '<div class="prompt-card">' +
+        '<div class="prompt-emoji" style="font-size:52px">' + emojiHtml(w) + "</div>" +
+        '<div class="sent-ko" style="font-size:17px;font-weight:900;color:var(--ink)">' + esc(d.koLine) + "</div>" +
+        '<div class="prompt-hint">단어 타일을 순서대로 눌러서 영어 문장을 만들어요!</div>' +
+      "</div>" +
+      '<div class="spell-slots sent-slots">' + d.tokens.map(() => '<div class="spell-slot word-slot"></div>').join("") + "</div>" +
+      '<div class="spell-tiles">' + tiles.map(t => '<button class="spell-tile word-tile" data-tok="' + esc(t) + '">' + esc(t) + "</button>").join("") + "</div>";
+    Session.lock = false;
+    box.querySelectorAll(".word-tile").forEach(b => b.addEventListener("click", (e) => this.arrTap(e, b)));
+  },
+
+  arrTap(e, btn) {
+    if (Session.lock || btn.classList.contains("used")) return;
+    const d = this.sData;
+    const need = d.tokens[this.arrIdx];
+    if (btn.dataset.tok !== need) {
+      if (!this.hadWrong) {
+        this.hadWrong = true;
+        SAVE.stats.totalAnswered++;
+        noteWordResult(this.word.id, false);
+        breakCombo();
+      }
+      SFX.wrong();
+      btn.classList.add("wrong");
+      later(() => btn.classList.remove("wrong"), 420);
+      return;
+    }
+    SFX.click();
+    btn.classList.add("used");
+    const slot = document.querySelectorAll("#quiz-box .word-slot")[this.arrIdx];
+    if (slot) { slot.textContent = need; slot.classList.add("filled"); }
+    this.arrIdx++;
+    if (this.arrIdx >= d.tokens.length) {
+      Session.lock = true;
+      if (!this.hadWrong) {
+        SAVE.stats.totalAnswered++;
+        noteWordResult(this.word.id, true);
+        awardFirstTry(e.clientX, e.clientY);
+      } else {
+        SFX.correct();
+      }
+      this.showResultBanner();
+    }
+  },
+
   answer(e, btn) {
     if (Session.lock) return;
     const wid = Number(btn.dataset.wid);
@@ -2220,23 +2386,31 @@ const Quiz = {
     } else {
       SFX.correct();
     }
+    this.showResultBanner();
+  },
+
+  // 정답 배너 (단어: 이모지+영어+한글 / 문장: 완성된 문장) → 스펠링 찬스 → 다음 문제
+  showResultBanner() {
     const w = this.word;
+    const isSent = this.qtype !== "word";
     later(() => {
       const banner = document.createElement("div");
       banner.className = "answer-banner";
-      banner.innerHTML = '<div class="be">' + emojiHtml(w) + '</div><div class="bn">' + esc(w.en) + '</div><div class="bk">' + esc(w.ko) + "</div>";
+      banner.innerHTML = isSent
+        ? '<div class="be">' + emojiHtml(w) + '</div><div class="bn" style="font-size:21px">' + esc(this.sData.enFull) + '</div><div class="bk">' + esc(this.sData.koLine) + "</div>"
+        : '<div class="be">' + emojiHtml(w) + '</div><div class="bn">' + esc(w.en) + '</div><div class="bk">' + esc(w.ko) + "</div>";
       document.body.appendChild(banner);
-      TTS.speak(w.en);
+      TTS.speak(isSent ? this.sData.enFull : w.en);
       later(() => {
         banner.remove();
         const proceed = () => {
           if (Session.round >= Session.total) Result.show();
           else this.question();
         };
-        // 30% 확률 보너스 찬스: 스펠링 타일로 철자 완성 (무실수 완성 시 🪙+2)
-        if (Spelling.roll(w)) Spelling.show(w, proceed);
+        // 30% 확률 보너스 찬스: 스펠링 타일 (문장 문제 라운드는 제외)
+        if (this.qtype === "word" && Spelling.roll(w)) Spelling.show(w, proceed);
         else proceed();
-      }, 1350);
+      }, isSent ? 1750 : 1350);
     }, 450);
   },
 };
