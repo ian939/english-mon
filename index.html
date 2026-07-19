@@ -601,6 +601,42 @@ img { -webkit-user-drag: none; }
 .ally-hp > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .4s; }
 .ally-hp > i.low { background: linear-gradient(90deg, #ff8c42, #ffb703); }
 
+/* 가족 톡 / 가족 연결 */
+.chat-badge {
+  background: #ff3b30; color: #fff; border-radius: 999px;
+  font-size: 12px; font-weight: 900; padding: 1px 8px; margin-left: 4px;
+  display: inline-block; vertical-align: 2px;
+}
+.family-code {
+  font-size: 34px; font-weight: 900; letter-spacing: 8px; color: var(--blue);
+  background: #eef5ff; border-radius: 16px; padding: 12px 6px; margin: 12px 0;
+}
+.chat-list {
+  flex: 0 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+  padding: 4px 2px; min-height: 240px; max-height: 52vh;
+}
+.bubble {
+  max-width: 80%; border-radius: 16px; padding: 9px 13px;
+  font-weight: 700; font-size: 15px; line-height: 1.4; word-break: break-word;
+}
+.bubble.me { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+.bubble.them { align-self: flex-start; background: var(--card); box-shadow: var(--shadow); border-bottom-left-radius: 4px; }
+.bubble .meta { font-size: 10.5px; opacity: .75; margin-top: 4px; font-weight: 700; }
+.chat-stamps { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 8px; }
+.stamp {
+  border: none; cursor: pointer; background: var(--card); box-shadow: var(--shadow);
+  border-radius: 999px; padding: 8px 12px; font-family: var(--font); font-weight: 800; font-size: 13px;
+  transition: transform .1s;
+}
+.stamp:active { transform: scale(.92); }
+.chat-inputrow { display: flex; gap: 8px; }
+.chat-inputrow input {
+  flex: 1; border: 2px solid #dfe8f0; border-radius: 14px; padding: 12px;
+  font-family: var(--font); font-size: 15px; font-weight: 700; color: var(--ink);
+  outline: none; min-width: 0;
+}
+.chat-inputrow input:focus { border-color: var(--blue); }
+
 .hidden { display: none !important; }
 .mt-auto { margin-top: auto; }
 .mt8 { margin-top: 8px; } .mt12 { margin-top: 12px; } .mt16 { margin-top: 16px; }
@@ -618,6 +654,14 @@ img { -webkit-user-drag: none; }
 <div id="modal-wrap" class="hidden"><div class="modal" id="modal-box"></div></div>
 <script>
 "use strict";
+
+/* ================================================================
+   [S2.5] 가족 동기화 설정
+   Firebase 실시간 데이터베이스 URL을 넣으면 가족 코드 공유·가족 톡이 켜집니다.
+   예: "https://englishmon-xxxxx-default-rtdb.asia-southeast1.firebasedatabase.app"
+   (비워두면 가족 기능은 안내 화면만 표시)
+================================================================ */
+var CLOUD_DB_URL = "";
 
 /* ================================================================
    [S3] CONFIG — 모든 밸런스 수치
@@ -1670,16 +1714,36 @@ const DEX_INFO = {
 /* ================================================================
    [S6] Storage — localStorage 영속 저장 (실패 시 메모리 폴백)
 ================================================================ */
+// 기기 고유 ID — 가족 동기화에서 기기별 누적 카운터(코인·볼)를 구분 (합산 방식이라 동시 플레이에도 안 꼬임)
+const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem("engmon_device");
+    if (!id) {
+      id = "d" + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem("engmon_device", id);
+    }
+    return id;
+  } catch (e) { return "d0"; }
+})();
+function emptyEco() {
+  const z = () => ({ poke: 0, super: 0, hyper: 0, master: 0 });
+  return { earned: 0, spent: 0, bought: z(), used: z() };
+}
+
 const Storage = {
   KEY: "engmon_save_v1",
   memoryOnly: false,
   warned: false,
 
   defaults() {
+    const eco = emptyEco();
+    Object.assign(eco.bought, CONFIG.welcomeBalls); // 웰컴 볼도 카운터에 기록
     return {
       version: 1,
       coins: 0,
       balls: Object.assign({ poke: 0, super: 0, hyper: 0, master: 0 }, CONFIG.welcomeBalls),
+      eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
+      chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
       stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
@@ -1707,6 +1771,14 @@ const Storage = {
         pokedex: data.pokedex || {},
         wordStats: data.wordStats || {},
         partnerHp: data.partnerHp || {},
+        chat: data.chat || [],
+        // 구버전 저장(카운터 없음) 마이그레이션: 현재 코인·볼을 이 기기 카운터로 이관
+        eco: data.eco || (() => {
+          const e = emptyEco();
+          e.earned = data.coins || 0;
+          Object.assign(e.bought, data.balls || {});
+          return { [DEVICE_ID]: e };
+        })(),
       });
     } catch (e) {
       try { localStorage.setItem(this.KEY + "_backup", raw); } catch (e2) {}
@@ -1984,7 +2056,32 @@ function topbarHtml(opts) {
    [S9] 저장 데이터 + 게임 세션 공통 (코인 보상 파이프라인)
 ================================================================ */
 let SAVE = Storage.load();
-const saveNow = () => Storage.save(SAVE);
+const saveNow = () => { Storage.save(SAVE); if (typeof Family !== "undefined") Family.queueSync(); };
+
+// 이 기기의 누적 카운터
+function myEco() {
+  let e = SAVE.eco[DEVICE_ID];
+  if (!e) e = SAVE.eco[DEVICE_ID] = emptyEco();
+  if (!e.bought) e.bought = { poke: 0, super: 0, hyper: 0, master: 0 };
+  if (!e.used) e.used = { poke: 0, super: 0, hyper: 0, master: 0 };
+  return e;
+}
+// 모든 기기 카운터 합산 → 실제 코인·볼 재계산 (동기화 병합 후 호출)
+function applyEco() {
+  let earned = 0, spent = 0;
+  const bought = { poke: 0, super: 0, hyper: 0, master: 0 };
+  const used = { poke: 0, super: 0, hyper: 0, master: 0 };
+  Object.values(SAVE.eco).forEach(e => {
+    earned += e.earned || 0;
+    spent += e.spent || 0;
+    CONFIG.ballOrder.forEach(k => {
+      bought[k] += (e.bought && e.bought[k]) || 0;
+      used[k] += (e.used && e.used[k]) || 0;
+    });
+  });
+  SAVE.coins = Math.max(0, earned - spent);
+  CONFIG.ballOrder.forEach(k => { SAVE.balls[k] = Math.max(0, bought[k] - used[k]); });
+}
 
 const Session = {
   mode: null, category: null, direction: "mix",
@@ -2036,6 +2133,7 @@ function reviewPool() {
 
 function addCoins(n, x, y) {
   SAVE.coins += n;
+  myEco().earned += n;
   Session.coinsEarned += n;
   saveNow();
   const chip = $("#coin-chip");
@@ -2117,12 +2215,19 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffe9ec">📕</span>' +
         '<span><div class="mt">포켓몬 도감</div><div class="md">' + caught + " / " + TOTAL_POKEMON + ' 마리 모았어요' + (caught >= TOTAL_POKEMON ? " 👑" : "") + '</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="go-chat">' +
+        '<span class="mi" style="background:#fff0f6">💬</span>' +
+        '<span><div class="mt">가족 톡 <span class="chat-badge hidden"></span></div><div class="md">' +
+          (Family.linked() ? "가족과 메시지를 주고받아요" : "가족 코드로 함께 모아요 (아이 패드 ↔ 부모 패드)") +
+        "</div></span>" +
+        '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn locked" data-act="mode-locked">' +
         '<span class="mi" style="background:#e8ecf1">🃏</span>' +
         '<span><div class="mt">카드 짝맞추기</div><div class="md">준비 중이에요</div></span>' +
         '<span class="arrow">🔒</span></button>' +
     "</div>" +
-    '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI</div>';
+    '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI' + (Family.linked() ? " · 가족 코드 " + esc(Family.st.code) : "") + "</div>";
+  Family.updateBadges();
 
   if (!SAVE.welcomed) {
     SAVE.welcomed = true; saveNow();
@@ -2227,6 +2332,49 @@ document.addEventListener("click", (e) => {
       toast(isKidMode()
         ? "👶 아이 모드! 초등 영어 단어로 출제돼요"
         : "🧑 부모 모드! TOEFL 단어로 출제돼요 (코인·도감은 함께 모아요)", 2600);
+      break;
+    case "go-chat":
+      SFX.tap();
+      if (Family.linked()) showScreen("chat");
+      else showScreen("family");
+      break;
+    case "go-family": SFX.tap(); showScreen("family"); break;
+    case "family-create": {
+      SFX.tap();
+      btn.disabled = true;
+      Family.createFamily().then(code => {
+        showScreen("family");
+        toast("✨ 가족 코드가 생겼어요: " + code, 3200);
+      }).catch(() => {
+        btn.disabled = false;
+        toast("연결이 안 돼요. 인터넷을 확인해 주세요 📶");
+      });
+      break;
+    }
+    case "family-join": {
+      SFX.tap();
+      const input = $("#family-code-input");
+      const code = (input ? input.value : "").trim().toUpperCase();
+      if (code.length !== 6) { toast("가족 코드 6자리를 입력해 주세요"); break; }
+      btn.disabled = true;
+      Family.joinFamily(code).then(() => {
+        showScreen("family");
+        toast("👨‍👩‍👧 가족과 연결됐어요! 진행을 합쳤어요", 2800);
+      }).catch(() => {
+        btn.disabled = false;
+        toast("그 코드의 가족을 찾을 수 없어요 🥲");
+      });
+      break;
+    }
+    case "family-sync-now":
+      SFX.tap();
+      Family.sync(true).then(okd => { if (okd) toast("🔄 동기화 완료!"); });
+      break;
+    case "family-unlink":
+      SFX.tap();
+      Family.unlink();
+      showScreen("family");
+      toast("이 기기의 연결을 끊었어요 (진행은 그대로예요)");
       break;
     case "go-dex": SFX.tap(); showScreen("pokedex"); break;
     case "quit-game":
@@ -3046,6 +3194,8 @@ document.addEventListener("click", (e) => {
   if (SAVE.coins < ball.price) { SFX.wrong(); return; }
   SAVE.coins -= ball.price;
   SAVE.balls[key]++;
+  myEco().spent += ball.price;
+  myEco().bought[key]++;
   saveNow();
   SFX.buy();
   const r = b.getBoundingClientRect();
@@ -3423,6 +3573,7 @@ const Adventure = {
     const fleeBtn = $("#adv-flee");
     if (fleeBtn) { fleeBtn.style.opacity = ".35"; fleeBtn.style.pointerEvents = "none"; }
     SAVE.balls[ballKey]--;
+    myEco().used[ballKey]++;
     saveNow();
     const pct = this.catchPct(ballKey);
     const success = Math.random() * 100 < pct;
@@ -3677,6 +3828,309 @@ Screens.pokedex = (el) => {
 };
 
 /* ================================================================
+   [S18.5] 가족 동기화 + 가족 톡
+   - 가족 코드 하나로 여러 기기(아이 패드/부모 패드)가 같은 진행을 공유
+   - 코인·볼은 기기별 누적 카운터 합산이라 동시에 놀아도 안 꼬임
+   - 로컬 저장이 항상 우선: 인터넷이 끊겨도 게임은 정상, 연결되면 자동 병합
+================================================================ */
+function chatRole() { return SAVE.mode === "parent" ? "parent" : "kid"; }
+
+const Family = {
+  LKEY: "engmon_family_v1",
+  st: { code: null, chatReadT: 0 },
+  pollTimer: null, syncTimer: null, syncing: false, lastUnread: 0,
+
+  enabled() { return !!CLOUD_DB_URL; },
+  linked() { return this.enabled() && !!this.st.code; },
+
+  init() {
+    try { Object.assign(this.st, JSON.parse(localStorage.getItem(this.LKEY)) || {}); } catch (e) {}
+    if (this.linked()) {
+      setTimeout(() => this.sync(), 1200);
+      this.startPoll();
+    }
+  },
+  saveSt() { try { localStorage.setItem(this.LKEY, JSON.stringify(this.st)); } catch (e) {} },
+  url(code) { return CLOUD_DB_URL.replace(/\/+$/, "") + "/families/" + code + ".json"; },
+  genCode() {
+    const c = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for (let i = 0; i < 6; i++) s += c[Math.floor(Math.random() * c.length)];
+    return s;
+  },
+
+  packLocal() {
+    return {
+      updatedAt: Date.now(),
+      eco: SAVE.eco, pokedex: SAVE.pokedex, wordStats: SAVE.wordStats,
+      stats: SAVE.stats, partnerHp: SAVE.partnerHp, partner: SAVE.partner,
+      chat: SAVE.chat || [],
+    };
+  },
+
+  // 두 저장본 병합 — 카운터는 max(단조증가), 도감·기록은 합집합, 채팅은 중복 제거 합집합
+  merge(a, b) {
+    const mx = (x, y) => Math.max(x || 0, y || 0);
+    const m = { updatedAt: mx(a.updatedAt, b.updatedAt) };
+    m.eco = {};
+    new Set(Object.keys(a.eco || {}).concat(Object.keys(b.eco || {}))).forEach(d => {
+      const ea = (a.eco || {})[d] || emptyEco();
+      const eb = (b.eco || {})[d] || emptyEco();
+      const e = emptyEco();
+      e.earned = mx(ea.earned, eb.earned);
+      e.spent = mx(ea.spent, eb.spent);
+      CONFIG.ballOrder.forEach(k => {
+        e.bought[k] = mx(ea.bought && ea.bought[k], eb.bought && eb.bought[k]);
+        e.used[k] = mx(ea.used && ea.used[k], eb.used && eb.used[k]);
+      });
+      m.eco[d] = e;
+    });
+    m.pokedex = {};
+    new Set(Object.keys(a.pokedex || {}).concat(Object.keys(b.pokedex || {}))).forEach(id => {
+      const pa = (a.pokedex || {})[id], pb = (b.pokedex || {})[id];
+      m.pokedex[id] = {
+        count: mx(pa && pa.count, pb && pb.count),
+        first: Math.min(pa ? pa.first : Infinity, pb ? pb.first : Infinity),
+      };
+    });
+    m.wordStats = {};
+    new Set(Object.keys(a.wordStats || {}).concat(Object.keys(b.wordStats || {}))).forEach(id => {
+      const wa = (a.wordStats || {})[id] || {}, wb = (b.wordStats || {})[id] || {};
+      m.wordStats[id] = { w: mx(wa.w, wb.w), c: mx(wa.c, wb.c) };
+    });
+    const sa = a.stats || {}, sb = b.stats || {};
+    m.stats = {
+      totalAnswered: mx(sa.totalAnswered, sb.totalAnswered),
+      totalCorrect: mx(sa.totalCorrect, sb.totalCorrect),
+      bestCombo: mx(sa.bestCombo, sb.bestCombo),
+      caught: mx(sa.caught, sb.caught),
+      gamesPlayed: {
+        quiz: mx(sa.gamesPlayed && sa.gamesPlayed.quiz, sb.gamesPlayed && sb.gamesPlayed.quiz),
+        chain: mx(sa.gamesPlayed && sa.gamesPlayed.chain, sb.gamesPlayed && sb.gamesPlayed.chain),
+        memory: mx(sa.gamesPlayed && sa.gamesPlayed.memory, sb.gamesPlayed && sb.gamesPlayed.memory),
+      },
+    };
+    m.partnerHp = {};
+    new Set(Object.keys(a.partnerHp || {}).concat(Object.keys(b.partnerHp || {}))).forEach(id => {
+      const ha = (a.partnerHp || {})[id], hb = (b.partnerHp || {})[id];
+      m.partnerHp[id] = (!hb || (ha && ha.t >= hb.t)) ? ha : hb;
+    });
+    m.partner = ((a.updatedAt || 0) >= (b.updatedAt || 0) ? (a.partner || b.partner) : (b.partner || a.partner)) || null;
+    const seen = new Set();
+    const chat = [];
+    (a.chat || []).concat(b.chat || []).forEach(msg => {
+      if (!msg || !msg.t) return;
+      const k = msg.t + "|" + msg.f + "|" + msg.x;
+      if (!seen.has(k)) { seen.add(k); chat.push(msg); }
+    });
+    chat.sort((x, y) => x.t - y.t);
+    m.chat = chat.slice(-200);
+    return m;
+  },
+
+  applyDoc(m) {
+    SAVE.eco = m.eco;
+    SAVE.pokedex = m.pokedex;
+    SAVE.wordStats = m.wordStats;
+    SAVE.stats = m.stats;
+    SAVE.partnerHp = m.partnerHp;
+    SAVE.partner = m.partner;
+    SAVE.chat = m.chat;
+    applyEco();
+    Storage.save(SAVE); // saveNow()는 queueSync를 또 부르므로 직접 저장
+    const chip = $("#coin-chip");
+    if (chip) chip.textContent = SAVE.coins;
+    this.updateBadges();
+  },
+
+  async sync(showErrors) {
+    if (!this.linked() || this.syncing) return false;
+    this.syncing = true;
+    try {
+      const r = await fetch(this.url(this.st.code));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const remote = await r.json(); // 없으면 null
+      const merged = this.merge(this.packLocal(), remote || {});
+      this.applyDoc(merged);
+      await fetch(this.url(this.st.code), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      return true;
+    } catch (e) {
+      if (showErrors) toast("연결이 안 돼요. 인터넷을 확인해 주세요 📶");
+      return false;
+    } finally {
+      this.syncing = false;
+    }
+  },
+
+  queueSync() {
+    if (!this.linked()) return;
+    clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => this.sync(), 2500);
+  },
+  startPoll() {
+    clearInterval(this.pollTimer);
+    if (this.linked()) this.pollTimer = setInterval(() => this.sync(), 45000);
+  },
+
+  async createFamily() {
+    const code = this.genCode();
+    await fetch(this.url(code), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(this.merge(this.packLocal(), {})),
+    });
+    this.st.code = code;
+    this.saveSt();
+    this.startPoll();
+    return code;
+  },
+  async joinFamily(code) {
+    const r = await fetch(this.url(code));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const remote = await r.json();
+    if (!remote) throw new Error("no such family");
+    this.st.code = code;
+    this.saveSt();
+    await this.sync();
+    this.startPoll();
+  },
+  unlink() {
+    this.st.code = null;
+    this.saveSt();
+    clearInterval(this.pollTimer);
+  },
+
+  unread() {
+    const my = chatRole();
+    return (SAVE.chat || []).filter(msg => msg.t > (this.st.chatReadT || 0) && msg.f !== my).length;
+  },
+  markRead() {
+    this.st.chatReadT = Date.now();
+    this.saveSt();
+    this.updateBadges();
+  },
+  updateBadges() {
+    const n = this.unread();
+    document.querySelectorAll(".chat-badge").forEach(b => {
+      b.textContent = "+" + n;
+      b.classList.toggle("hidden", n === 0);
+    });
+    if (n > this.lastUnread && currentScreen === "chat") {
+      renderChatList(); // 채팅 화면을 보고 있으면 바로 갱신
+      this.markRead();
+    } else if (n > this.lastUnread && currentScreen !== "chat") {
+      toast("💬 새 가족 톡이 도착했어요!", 2200);
+    }
+    this.lastUnread = this.unread();
+  },
+};
+
+/* ---- 가족 연결 화면 ---- */
+Screens.family = (el) => {
+  let body;
+  if (!Family.enabled()) {
+    body =
+      '<div class="prompt-card" style="text-align:left">' +
+        '<div style="font-size:38px;text-align:center">👨‍👩‍👧☁️</div>' +
+        '<div class="m-title" style="text-align:center">가족 함께하기 (준비 중)</div>' +
+        '<div class="m-text" style="text-align:left">아이 패드와 부모 패드가 <b>같은 코인·볼·도감</b>을 쓰고, ' +
+        "<b>가족 톡</b>으로 메시지를 주고받는 기능이에요.<br><br>" +
+        "이 기능은 무료 저장소(Firebase) 주소를 한 번만 설정하면 켜져요. " +
+        "게임을 만든 사람(아빠!)이 설정해 주세요 🙂</div>" +
+      "</div>" +
+      '<button class="btn ghost wide" data-act="go-home">🏠 홈으로</button>';
+  } else if (!Family.linked()) {
+    body =
+      '<div class="prompt-card">' +
+        '<div style="font-size:38px">👨‍👩‍👧</div>' +
+        '<div class="m-title">가족과 함께 모아요!</div>' +
+        '<div class="m-text">한 기기에서 <b>가족 코드</b>를 만들고,<br>다른 기기에서 그 코드를 입력하면<br>코인·볼·도감·가족 톡을 함께 써요.</div>' +
+      "</div>" +
+      '<button class="btn green big wide" data-act="family-create">✨ 새 가족 코드 만들기</button>' +
+      '<div class="prompt-hint" style="text-align:center;margin:14px 0 6px">— 이미 코드가 있다면 —</div>' +
+      '<div class="chat-inputrow">' +
+        '<input id="family-code-input" maxlength="6" placeholder="가족 코드 6자리" style="text-transform:uppercase;letter-spacing:4px;text-align:center;font-size:20px;font-weight:900">' +
+        '<button class="btn" data-act="family-join">연결</button>' +
+      "</div>" +
+      '<button class="btn ghost wide mt12" data-act="go-home">🏠 홈으로</button>';
+  } else {
+    body =
+      '<div class="prompt-card">' +
+        '<div style="font-size:34px">👨‍👩‍👧✅</div>' +
+        '<div class="m-title">가족과 연결되어 있어요</div>' +
+        '<div class="family-code">' + esc(Family.st.code) + "</div>" +
+        '<div class="m-text">다른 기기에서 이 코드를 입력하면<br>같은 진행으로 함께 놀 수 있어요.</div>' +
+      "</div>" +
+      '<button class="btn wide" data-act="go-chat">💬 가족 톡 열기 <span class="chat-badge hidden"></span></button>' +
+      '<button class="btn green wide mt8" data-act="family-sync-now">🔄 지금 동기화</button>' +
+      '<button class="btn ghost wide mt8" data-act="family-unlink">이 기기만 연결 끊기</button>' +
+      '<button class="btn ghost wide mt8" data-act="go-home">🏠 홈으로</button>';
+  }
+  el.innerHTML = topbarHtml({ home: true }) + '<div class="page-title">☁️ 가족 함께하기</div>' + body;
+  Family.updateBadges();
+};
+
+/* ---- 가족 톡 화면 ---- */
+const CHAT_STAMPS = ["🎉 포켓몬 잡았어!", "📖 오늘 공부 다 했어요", "👍 잘했어!", "❤️ 사랑해", "🌈 진화 완성했어!", "🎁 볼 사놨어"];
+
+function chatMsgsHtml() {
+  const my = chatRole();
+  if (!(SAVE.chat || []).length) {
+    return '<div class="prompt-hint" style="text-align:center;padding:30px 10px">아직 메시지가 없어요.<br>첫 메시지를 남겨 보세요! 💬</div>';
+  }
+  return SAVE.chat.map(m => {
+    const mine = m.f === my;
+    const who = m.f === "parent" ? "🧑 부모" : "👶 아이";
+    const d = new Date(m.t);
+    const time = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    return '<div class="bubble ' + (mine ? "me" : "them") + '">' + esc(m.x) +
+      '<div class="meta">' + who + " · " + time + "</div></div>";
+  }).join("");
+}
+function renderChatList() {
+  const list = $("#chat-list");
+  if (!list) return;
+  list.innerHTML = chatMsgsHtml();
+  list.scrollTop = list.scrollHeight;
+}
+function sendChat(text) {
+  const x = String(text || "").trim().slice(0, 120);
+  if (!x) return;
+  (SAVE.chat = SAVE.chat || []).push({ f: chatRole(), x, t: Date.now() });
+  Storage.save(SAVE);
+  SFX.tap();
+  renderChatList();
+  Family.markRead();
+  Family.sync();
+}
+
+Screens.chat = (el) => {
+  el.innerHTML =
+    topbarHtml({ home: true }) +
+    '<div class="page-title">💬 가족 톡 <span class="prompt-hint" style="margin-left:6px">(' + (chatRole() === "parent" ? "🧑 부모" : "👶 아이") + ' 로 보내는 중)</span>' +
+      '<button class="icon-btn" data-act="go-family" style="margin-left:auto" aria-label="가족 설정">⚙️</button></div>' +
+    '<div class="chat-list" id="chat-list"></div>' +
+    '<div class="chat-stamps">' + CHAT_STAMPS.map(s => '<button class="stamp" data-stamp="' + esc(s) + '">' + esc(s) + "</button>").join("") + "</div>" +
+    '<div class="chat-inputrow">' +
+      '<input id="chat-input" maxlength="120" placeholder="메시지를 써 보세요" enterkeyhint="send">' +
+      '<button class="btn" id="chat-send">보내기</button>' +
+    "</div>";
+  renderChatList();
+  Family.markRead();
+  $("#chat-send").addEventListener("click", () => { sendChat($("#chat-input").value); $("#chat-input").value = ""; });
+  $("#chat-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") { sendChat($("#chat-input").value); $("#chat-input").value = ""; }
+  });
+  el.querySelectorAll(".stamp").forEach(b => b.addEventListener("click", () => sendChat(b.dataset.stamp)));
+  // 화면을 보는 동안 15초마다 새 메시지 확인
+  screenTimers.push(setInterval(() => Family.sync(), 15000));
+};
+
+/* ================================================================
    [S19] 초기화 + 데이터 자가검증
 ================================================================ */
 (function validateData() {
@@ -3734,6 +4188,7 @@ Screens.pokedex = (el) => {
 })();
 
 document.addEventListener("contextmenu", e => e.preventDefault());
+Family.init();
 showScreen("home");
 
 </script>
