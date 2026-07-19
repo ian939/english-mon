@@ -106,7 +106,7 @@ img { -webkit-user-drag: none; }
 }
 .home-title .mon { color: var(--accent); }
 .home-sub { text-align: center; color: var(--ink-soft); font-weight: 700; margin-bottom: 14px; font-size: 15px; }
-.home-hero { text-align: center; font-size: clamp(56px, 16vw, 84px); margin: 4px 0 10px; animation: heroBob 2.4s ease-in-out infinite; }
+.home-hero { text-align: center; font-size: clamp(56px, 16vw, 84px); margin: 4px 0 10px; }
 @keyframes heroBob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
 .home-menu { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 .mode-btn {
@@ -607,6 +607,21 @@ img { -webkit-user-drag: none; }
   font-size: 12px; font-weight: 900; padding: 1px 8px; margin-left: 4px;
   display: inline-block; vertical-align: 2px;
 }
+/* 홈 몬스터볼 = 가족 톡 버튼: 새 톡이 있으면 볼 위에 +N */
+.hero-ball {
+  position: relative; border: none; background: none; cursor: pointer;
+  padding: 4px; transition: transform .1s;
+}
+.hero-ball:active { transform: scale(.88); }
+.hero-badge {
+  position: absolute; top: -6px; right: -16px; margin: 0;
+  font-size: 15px; padding: 3px 10px;
+  box-shadow: 0 2px 8px rgba(255,59,48,.45);
+  animation: comboPop .3s ease;
+}
+/* 애니메이션은 내부 이미지에만 — 버튼 위치는 고정(터치 안정) */
+.hero-ball .ball-icon img { animation: heroBob 2.4s ease-in-out infinite; }
+.hero-ball:has(.chat-badge:not(.hidden)) .ball-icon img { animation: nudge 1.2s ease-in-out infinite; }
 .family-code {
   font-size: 34px; font-weight: 900; letter-spacing: 8px; color: var(--blue);
   background: #eef5ff; border-radius: 16px; padding: 12px 6px; margin: 12px 0;
@@ -2193,7 +2208,10 @@ Screens.home = (el) => {
     '<p class="home-sub">' + (isKidMode()
       ? "영어 단어를 맞추고 포켓몬을 모아보자!"
       : "🧑 부모 모드 — TOEFL 단어로 함께 도감을 채워요!") + "</p>" +
-    '<div class="home-hero">' + ballIcon("poke", 88) + "</div>" +
+    '<div class="home-hero"><button class="hero-ball" data-act="go-chat" aria-label="가족 톡">' +
+      ballIcon("poke", 88) +
+      '<span class="chat-badge hero-badge hidden"></span>' +
+    "</button></div>" +
     '<div class="home-menu">' +
       '<button class="mode-btn" data-act="pick-cat" data-mode="quiz">' +
         '<span class="mi" style="background:#e3f0ff">📖</span>' +
