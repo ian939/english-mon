@@ -1461,7 +1461,7 @@ const EVO_LINE_OF = {};
 EVO_LINES.forEach(line => line.forEach(id => { EVO_LINE_OF[id] = line; }));
 function evoLineComplete(id) {
   const line = EVO_LINE_OF[id];
-  return !!line && line.every(x => SAVE.pokedex[x]);
+  return !!line && line.every(x => SAVE.pokedex[x] && SAVE.pokedex[x].count >= 1);
 }
 
 const SPRITE_BASE = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
@@ -1934,10 +1934,60 @@ function emptyEco() {
   return { earned: 0, spent: 0, bought: z(), used: z() };
 }
 
+/* ---- 데이터 정화 (재발 방지 핵심) ----
+   Firebase는 숫자 키 객체를 배열로 바꿔버림 → null 칸이 "유령 도감 항목"이 되는 사고가 있었음.
+   ① 배열이 오면 객체로 복원하고 ② 유효한 항목(count≥1 등)만 남긴다. */
+function unpackMap(m, prefix) {
+  const out = {};
+  if (Array.isArray(m)) {
+    m.forEach((v, i) => { if (v) out[i] = v; });
+  } else if (m && typeof m === "object") {
+    Object.keys(m).forEach(k => {
+      if (!m[k]) return;
+      out[prefix && k.charAt(0) === prefix && /\d/.test(k.charAt(1)) ? k.slice(1) : k] = m[k];
+    });
+  }
+  return out;
+}
+function prefixMap(m, prefix) {
+  const out = {};
+  Object.keys(m || {}).forEach(k => { out[prefix + k] = m[k]; });
+  return out;
+}
+function sanitizePokedex(px) {
+  const out = {};
+  Object.entries(unpackMap(px, "p")).forEach(([k, e]) => {
+    const id = Number(k);
+    if (e && typeof e === "object" && (e.count || 0) >= 1 && id >= 1 && id <= TOTAL_POKEMON) {
+      out[id] = { count: e.count, first: (typeof e.first === "number" && e.first > 0) ? e.first : Date.now() };
+    }
+  });
+  return out;
+}
+function sanitizeWordStats(ws) {
+  const out = {};
+  Object.entries(unpackMap(ws, "w")).forEach(([k, e]) => {
+    if (e && typeof e === "object" && ((e.w || 0) > 0 || (e.c || 0) > 0)) {
+      out[k] = { w: e.w || 0, c: e.c || 0 };
+    }
+  });
+  return out;
+}
+function sanitizePartnerHp(ph) {
+  const out = {};
+  Object.entries(unpackMap(ph, "h")).forEach(([k, e]) => {
+    if (e && typeof e === "object" && typeof e.hp === "number" && typeof e.t === "number") {
+      out[k] = { hp: e.hp, t: e.t };
+    }
+  });
+  return out;
+}
+
 const Storage = {
   KEY: "engmon_save_v1",
   memoryOnly: false,
   warned: false,
+  repairedGhosts: 0,
 
   defaults() {
     const eco = emptyEco();
@@ -1970,14 +2020,19 @@ const Storage = {
       const data = JSON.parse(raw);
       // 필드 누락 대비: 기본값 위에 덮어쓰기
       const d = this.defaults();
+      // 유령 도감 복구 감지 (사용자 안내용)
+      const rawDexN = Object.keys(unpackMap(data.pokedex || {}, "p")).length;
+      const cleanDexN = Object.keys(sanitizePokedex(data.pokedex || {})).length;
+      if (rawDexN > cleanDexN) this.repairedGhosts = rawDexN - cleanDexN;
       return Object.assign(d, data, {
         balls: Object.assign(d.balls, data.balls || {}),
         stats: Object.assign(d.stats, data.stats || {}),
         settings: Object.assign(d.settings, data.settings || {}),
-        pokedex: data.pokedex || {},
-        wordStats: data.wordStats || {},
-        partnerHp: data.partnerHp || {},
-        chat: data.chat || [],
+        // 로드할 때마다 정화 — 손상된 데이터(유령 도감 등)를 자동 복구
+        pokedex: sanitizePokedex(data.pokedex || {}),
+        wordStats: sanitizeWordStats(data.wordStats || {}),
+        partnerHp: sanitizePartnerHp(data.partnerHp || {}),
+        chat: Array.isArray(data.chat) ? data.chat : [],
         // 구버전 저장(카운터 없음) 마이그레이션: 현재 코인·볼을 이 기기 카운터로 이관
         eco: data.eco || (() => {
           const e = emptyEco();
@@ -4012,7 +4067,7 @@ Screens.pokedex = (el) => {
   const cells = [];
   for (let id = 1; id <= TOTAL_POKEMON; id++) {
     const entry = SAVE.pokedex[id];
-    if (entry) {
+    if (entry && entry.count >= 1) { // 방어막: 유효한 포획 기록만 '잡음'으로 표시
       cells.push(
         '<button class="dex-cell' + (evoLineComplete(id) ? " prism" : "") + '" data-dex="' + id + '">' +
         (entry.count > 1 ? '<span class="dupe">×' + entry.count + "</span>" : "") +
@@ -4115,6 +4170,25 @@ const Family = {
     };
   },
 
+  // 클라우드 저장용: 숫자 키에 접두사를 붙여 Firebase의 배열 변환을 원천 차단
+  packForCloud(doc) {
+    return Object.assign({}, doc, {
+      pokedex: prefixMap(doc.pokedex, "p"),
+      wordStats: prefixMap(doc.wordStats, "w"),
+      partnerHp: prefixMap(doc.partnerHp, "h"),
+    });
+  },
+  // 클라우드에서 읽은 문서 정화: 접두사 해제 + 배열 복원 + 유효 항목만 (과거 손상 문서도 여기서 치유됨)
+  normalizeRemote(doc) {
+    if (!doc || typeof doc !== "object") return {};
+    return Object.assign({}, doc, {
+      pokedex: sanitizePokedex(doc.pokedex || {}),
+      wordStats: sanitizeWordStats(doc.wordStats || {}),
+      partnerHp: sanitizePartnerHp(doc.partnerHp || {}),
+      chat: Array.isArray(doc.chat) ? doc.chat : Object.values(doc.chat || {}),
+    });
+  },
+
   // 두 저장본 병합 — 카운터는 max(단조증가), 도감·기록은 합집합, 채팅은 중복 제거 합집합
   merge(a, b) {
     const mx = (x, y) => Math.max(x || 0, y || 0);
@@ -4135,10 +4209,11 @@ const Family = {
     m.pokedex = {};
     new Set(Object.keys(a.pokedex || {}).concat(Object.keys(b.pokedex || {}))).forEach(id => {
       const pa = (a.pokedex || {})[id], pb = (b.pokedex || {})[id];
-      m.pokedex[id] = {
-        count: mx(pa && pa.count, pb && pb.count),
-        first: Math.min(pa ? pa.first : Infinity, pb ? pb.first : Infinity),
-      };
+      const count = mx(pa && pa.count, pb && pb.count);
+      if (count < 1) return; // 유령 항목(count 0) 생성 금지 — 재발 방지
+      let first = Math.min(pa && pa.first ? pa.first : Infinity, pb && pb.first ? pb.first : Infinity);
+      if (!isFinite(first)) first = Date.now();
+      m.pokedex[id] = { count, first };
     });
     m.wordStats = {};
     new Set(Object.keys(a.wordStats || {}).concat(Object.keys(b.wordStats || {}))).forEach(id => {
@@ -4196,13 +4271,13 @@ const Family = {
     try {
       const r = await fetch(this.url(this.st.code));
       if (!r.ok) throw new Error("HTTP " + r.status);
-      const remote = await r.json(); // 없으면 null
-      const merged = this.merge(this.packLocal(), remote || {});
+      const remote = this.normalizeRemote(await r.json()); // 배열 복원 + 유효 항목만
+      const merged = this.merge(this.packLocal(), remote);
       this.applyDoc(merged);
       await fetch(this.url(this.st.code), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(merged),
+        body: JSON.stringify(this.packForCloud(merged)), // 접두사 키로 저장 (배열 변환 차단)
       });
       return true;
     } catch (e) {
@@ -4228,7 +4303,7 @@ const Family = {
     await fetch(this.url(code), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(this.merge(this.packLocal(), {})),
+      body: JSON.stringify(this.packForCloud(this.merge(this.packLocal(), {}))),
     });
     this.st.code = code;
     this.saveSt();
@@ -4443,6 +4518,10 @@ Screens.chat = (el) => {
 document.addEventListener("contextmenu", e => e.preventDefault());
 Family.init();
 showScreen("home");
+if (Storage.repairedGhosts > 0) {
+  saveNow(); // 정화된 상태를 바로 저장
+  setTimeout(() => toast("🔧 도감 데이터 오류 " + Storage.repairedGhosts + "건을 복구했어요! 진짜 잡은 포켓몬은 그대로예요", 4000), 1500);
+}
 
 </script>
 </body>
