@@ -733,7 +733,7 @@ const CONFIG = {
   spellChance: 0.5,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
-  puzzle: { base: 5, under60: 2, under30: 5 }, // 퍼즐 클리어 +5, 1분 미만 +2, 30초 미만 +5
+  puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -3712,8 +3712,8 @@ const Puzzle = {
     const secs = Math.max(1, Math.round((Date.now() - this.startT) / 1000));
     let coins = CONFIG.puzzle.base;
     let bonusLine = "";
-    if (secs < 30) { coins += CONFIG.puzzle.under30; bonusLine = "⚡ 30초 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under30 + "</b>"; }
-    else if (secs < 60) { coins += CONFIG.puzzle.under60; bonusLine = "⏱ 1분 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under60 + "</b>"; }
+    if (secs < 15) { coins += CONFIG.puzzle.under15; bonusLine = "⚡ 15초 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under15 + "</b>"; }
+    else if (secs < 30) { coins += CONFIG.puzzle.under30; bonusLine = "⏱ 30초 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under30 + "</b>"; }
     addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.35);
     SAVE.stats.gamesPlayed.puzzle = (SAVE.stats.gamesPlayed.puzzle || 0) + 1;
     saveNow();
