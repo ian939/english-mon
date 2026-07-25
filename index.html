@@ -617,6 +617,31 @@ img { -webkit-user-drag: none; }
 .ally-hp > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .4s; }
 .ally-hp > i.low { background: linear-gradient(90deg, #ff8c42, #ffb703); }
 
+/* ===== 퍼즐 모드 (전기 회로 잇기) ===== */
+.pz-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.pz-board {
+  position: relative; width: 100%; aspect-ratio: 1 / 1;
+  display: grid; gap: 5px; padding: 8px;
+  background: var(--card); border-radius: 20px; box-shadow: var(--shadow);
+  touch-action: none; user-select: none;
+}
+.pz-cell { position: relative; border-radius: 9px; background: #edf3f9; box-shadow: inset 0 0 0 1px rgba(45,58,74,.05); }
+.pz-core { position: absolute; left: 35%; top: 35%; width: 30%; height: 30%; border-radius: 4px; z-index: 2; }
+.pz-core.done { filter: brightness(1.12); }
+.pz-arm { position: absolute; z-index: 1; }
+.pz-arm.u { left: 35%; top: 0; width: 30%; height: 52%; }
+.pz-arm.d { left: 35%; top: 48%; width: 30%; height: 52%; }
+.pz-arm.l { left: 0; top: 35%; width: 52%; height: 30%; }
+.pz-arm.r { left: 48%; top: 35%; width: 52%; height: 30%; }
+.pz-term {
+  position: absolute; left: 15%; top: 15%; width: 70%; height: 70%; border-radius: 50%; z-index: 3;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,.3), 0 0 0 3px #fff, 0 2px 6px rgba(45,58,74,.25);
+}
+.pz-term.done { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.pz-controls { display: flex; gap: 9px; margin-top: 12px; }
+.pz-hint { text-align: center; color: var(--ink-soft); font-size: 12.5px; font-weight: 700; margin-top: 10px; }
+
 /* 가족 톡 / 가족 연결 */
 .chat-badge {
   background: #ff3b30; color: #fff; border-radius: 999px;
@@ -708,6 +733,7 @@ const CONFIG = {
   spellChance: 0.5,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
+  puzzle: { base: 5, under60: 2, under30: 5 }, // 퍼즐 클리어 +5, 1분 미만 +2, 30초 미만 +5
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -1999,7 +2025,7 @@ const Storage = {
       eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
       chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
-      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0 }, bestCombo: 0, caught: 0 },
+      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
       mode: "kid",     // "kid" 아이 모드 | "parent" 부모 모드 — 코인·볼·도감은 공유
       course: "toefl", // 부모 모드 코스: "toefl" | "ielts" (기기별 설정)
@@ -2478,6 +2504,10 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffeede">🚂</span>' +
         '<span><div class="mt">영어 끝말잇기</div><div class="md">마지막 글자로 단어 기차 만들기 · 🪙 벌기</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="go-puzzle">' +
+        '<span class="mi" style="background:#eef2ff">🧩</span>' +
+        '<span><div class="mt">전기 회로 퍼즐</div><div class="md">같은 색을 이어 회로 완성 · 빠르면 🪙 더!</div></span>' +
+        '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn adventure' + (ballTotal > 0 ? " pulse" : "") + '" data-act="go-adventure">' +
         '<span class="mi" style="background:#fff3d1">🌿</span>' +
         '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (' + ballTotal + '개)</div></span>' +
@@ -2632,6 +2662,8 @@ document.addEventListener("click", (e) => {
       else showScreen("family");
       break;
     case "go-family": SFX.tap(); showScreen("family"); break;
+    case "go-puzzle": SFX.tap(); Puzzle.stage = 1; showScreen("puzzle"); break;
+    case "puzzle-next": SFX.tap(); closeModal(); Puzzle.stage++; showScreen("puzzle"); break;
     case "family-create": {
       SFX.tap();
       btn.disabled = true;
@@ -3459,6 +3491,282 @@ const Memory = {
 Screens.memory = (el) => Memory.render(el);
 
 /* ================================================================
+   [S15.5] 퍼즐 모드 — 전기 회로 잇기 (같은 색 단자 연결 + 모든 칸 채우기)
+   보상: 클리어 +5코인, 1분 미만 +2 추가, 30초 미만 +5 추가
+================================================================ */
+const PZ_PAL = ["#3d8bfd", "#ff8c42", "#ff5a8d", "#2ec46f", "#9b5de5", "#e8b100", "#26c6da", "#8d6e63"];
+
+const Puzzle = {
+  W: 0, H: 0, N: 0, cellColor: null, endpointOf: null,
+  colorPaths: [], colorDone: [], numColors: 0, solution: [],
+  cellEls: [], stage: 1, drawing: false, active: -1,
+  startT: 0, solved: false,
+
+  params(s) {
+    return {
+      size: Math.min(8, 5 + Math.floor((s - 1) / 2)),
+      colors: Math.min(PZ_PAL.length, 4 + Math.floor(s / 2)),
+    };
+  },
+  neighbors(cell) {
+    const r = (cell / this.W) | 0, c = cell % this.W, out = [];
+    if (r > 0) out.push(cell - this.W);
+    if (r < this.H - 1) out.push(cell + this.W);
+    if (c > 0) out.push(cell - 1);
+    if (c < this.W - 1) out.push(cell + 1);
+    return out;
+  },
+
+  // 항상 정답이 존재: 해밀턴 경로를 무작위화(backbite) 후 색깔별로 잘라 배치
+  gen(size, colors) {
+    this.W = this.H = size;
+    this.N = this.W * this.H;
+    const N = this.N, W = this.W;
+    let path = [];
+    for (let r = 0; r < this.H; r++) {
+      if (r % 2 === 0) for (let c = 0; c < W; c++) path.push(r * W + c);
+      else for (let c = W - 1; c >= 0; c--) path.push(r * W + c);
+    }
+    const posIdx = new Int32Array(N);
+    for (let i = 0; i < N; i++) posIdx[path[i]] = i;
+    for (let it = 0; it < N * 22; it++) {
+      if (Math.random() < 0.5) { path.reverse(); for (let i = 0; i < N; i++) posIdx[path[i]] = i; }
+      const u = path[N - 1], nb = this.neighbors(u);
+      const w = nb[(Math.random() * nb.length) | 0];
+      if (w === path[N - 2]) continue;
+      const i = posIdx[w];
+      let lo = i + 1, hi = N - 1;
+      while (lo < hi) { const t = path[lo]; path[lo] = path[hi]; path[hi] = t; lo++; hi--; }
+      for (let k = i + 1; k < N; k++) posIdx[path[k]] = k;
+    }
+    this.numColors = Math.min(colors, PZ_PAL.length, Math.floor(N / 2));
+    const base = Math.floor(N / this.numColors), rem = N % this.numColors, sizes = [];
+    for (let i = 0; i < this.numColors; i++) sizes.push(base + (i < rem ? 1 : 0));
+    for (let s = 0; s < this.numColors * 3; s++) {
+      const i = (Math.random() * this.numColors) | 0, j = (Math.random() * this.numColors) | 0;
+      if (i !== j && sizes[i] > 2) { sizes[i]--; sizes[j]++; }
+    }
+    this.cellColor = new Int32Array(N).fill(-1);
+    this.endpointOf = new Int32Array(N).fill(-1);
+    this.colorPaths = []; this.colorDone = []; this.solution = [];
+    let idx = 0;
+    for (let ci = 0; ci < this.numColors; ci++) {
+      const len = sizes[ci];
+      this.endpointOf[path[idx]] = ci;
+      this.endpointOf[path[idx + len - 1]] = ci;
+      this.solution.push(path.slice(idx, idx + len)); // 검증·힌트용 정답 보관
+      this.colorPaths.push([]); this.colorDone.push(false);
+      idx += len;
+    }
+    this.startT = 0;
+    this.solved = false;
+    this.buildBoard();
+    this.render();
+    this.updateHud();
+  },
+
+  buildBoard() {
+    const board = $("#pz-board");
+    board.style.gridTemplateColumns = "repeat(" + this.W + ",1fr)";
+    board.style.gridTemplateRows = "repeat(" + this.H + ",1fr)";
+    board.innerHTML = "";
+    this.cellEls = [];
+    for (let i = 0; i < this.N; i++) {
+      const d = document.createElement("div");
+      d.className = "pz-cell";
+      board.appendChild(d);
+      this.cellEls.push(d);
+    }
+  },
+
+  recomputeDone() {
+    for (let k = 0; k < this.numColors; k++) {
+      const p = this.colorPaths[k];
+      this.colorDone[k] = p.length >= 2 && this.endpointOf[p[0]] === k &&
+        this.endpointOf[p[p.length - 1]] === k && p[0] !== p[p.length - 1];
+    }
+  },
+  render() {
+    this.recomputeDone();
+    const conn = Array.from({ length: this.N }, () => "");
+    for (let k = 0; k < this.numColors; k++) {
+      const p = this.colorPaths[k];
+      for (let i = 0; i < p.length - 1; i++) {
+        const a = p[i], b = p[i + 1], diff = b - a;
+        if (diff === 1) { conn[a] += "r"; conn[b] += "l"; }
+        else if (diff === -1) { conn[a] += "l"; conn[b] += "r"; }
+        else if (diff === this.W) { conn[a] += "d"; conn[b] += "u"; }
+        else if (diff === -this.W) { conn[a] += "u"; conn[b] += "d"; }
+      }
+    }
+    for (let i = 0; i < this.N; i++) {
+      const el = this.cellEls[i], col = this.cellColor[i];
+      let html = "";
+      if (col >= 0) {
+        const hex = PZ_PAL[col], done = this.colorDone[col], c = conn[i];
+        if (c.includes("u")) html += '<span class="pz-arm u" style="background:' + hex + '"></span>';
+        if (c.includes("d")) html += '<span class="pz-arm d" style="background:' + hex + '"></span>';
+        if (c.includes("l")) html += '<span class="pz-arm l" style="background:' + hex + '"></span>';
+        if (c.includes("r")) html += '<span class="pz-arm r" style="background:' + hex + '"></span>';
+        html += '<span class="pz-core' + (done ? " done" : "") + '" style="background:' + hex + (done ? ";box-shadow:0 0 10px " + hex : "") + '"></span>';
+      }
+      const ep = this.endpointOf[i];
+      if (ep >= 0) {
+        html += '<span class="pz-term' + (this.colorDone[ep] ? " done" : "") + '" style="background:' + PZ_PAL[ep] + '"></span>';
+      }
+      el.innerHTML = html;
+    }
+  },
+  updateHud() {
+    this.recomputeDone();
+    let done = 0;
+    for (let k = 0; k < this.numColors; k++) if (this.colorDone[k]) done++;
+    const conn = $("#pz-conn");
+    if (conn) conn.textContent = done + " / " + this.numColors;
+    const bar = $("#pz-bar");
+    if (bar) bar.style.width = Math.round(done / this.numColors * 100) + "%";
+  },
+  tick() {
+    const t = $("#pz-time");
+    if (!t) return;
+    if (!this.startT || this.solved) return;
+    const s = Math.floor((Date.now() - this.startT) / 1000);
+    t.textContent = "⏱ " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  },
+
+  adjacent(a, b) {
+    const ra = (a / this.W) | 0, ca = a % this.W, rb = (b / this.W) | 0, cb = b % this.W;
+    return (ra === rb && Math.abs(ca - cb) === 1) || (ca === cb && Math.abs(ra - rb) === 1);
+  },
+  clearColor(k) { for (const idx of this.colorPaths[k]) this.cellColor[idx] = -1; this.colorPaths[k] = []; },
+  cutColor(m, atCell) {
+    const p = this.colorPaths[m], j = p.indexOf(atCell);
+    if (j < 0) return;
+    for (let x = j; x < p.length; x++) if (this.cellColor[p[x]] === m) this.cellColor[p[x]] = -1;
+    this.colorPaths[m] = p.slice(0, j);
+  },
+  startColor(k, epCell) { this.clearColor(k); this.colorPaths[k] = [epCell]; this.cellColor[epCell] = k; },
+  grabPath(k, cell) {
+    const p = this.colorPaths[k], j = p.indexOf(cell);
+    if (j < 0) return;
+    for (let x = j + 1; x < p.length; x++) this.cellColor[p[x]] = -1;
+    this.colorPaths[k] = p.slice(0, j + 1);
+  },
+  step(target) {
+    const k = this.active, p = this.colorPaths[k], head = p[p.length - 1];
+    if (target === head || !this.adjacent(target, head)) return;
+    if (p.length >= 2 && target === p[p.length - 2]) { this.cellColor[p.pop()] = -1; this.render(); this.updateHud(); return; }
+    const inIdx = p.indexOf(target);
+    if (inIdx >= 0) { for (let x = p.length - 1; x > inIdx; x--) this.cellColor[p[x]] = -1; this.colorPaths[k] = p.slice(0, inIdx + 1); this.render(); return; }
+    const tEp = this.endpointOf[target];
+    if (tEp >= 0 && tEp !== k) return;
+    const tc = this.cellColor[target];
+    if (tc >= 0 && tc !== k) this.cutColor(tc, target);
+    this.cellColor[target] = k;
+    p.push(target);
+    this.render(); this.updateHud(); this.checkWin();
+  },
+  cellAt(e) {
+    const board = $("#pz-board");
+    const rect = board.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null;
+    const c = Math.min(this.W - 1, Math.max(0, Math.floor(x / (rect.width / this.W))));
+    const r = Math.min(this.H - 1, Math.max(0, Math.floor(y / (rect.height / this.H))));
+    return r * this.W + c;
+  },
+  bind(board) {
+    board.addEventListener("touchstart", e => e.preventDefault(), { passive: false });
+    board.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      if (this.solved) return;
+      const cell = this.cellAt(e);
+      if (cell == null) return;
+      board.setPointerCapture(e.pointerId);
+      const ep = this.endpointOf[cell], col = this.cellColor[cell];
+      if (ep >= 0) { this.active = ep; this.startColor(ep, cell); this.drawing = true; }
+      else if (col >= 0) { this.active = col; this.grabPath(col, cell); this.drawing = true; }
+      else return;
+      if (!this.startT) this.startT = Date.now(); // 첫 터치부터 시간 측정
+      SFX.flip();
+      this.render(); this.updateHud();
+    });
+    board.addEventListener("pointermove", e => {
+      if (!this.drawing) return;
+      e.preventDefault();
+      const cell = this.cellAt(e);
+      if (cell != null) this.step(cell);
+    }, { passive: false });
+    board.addEventListener("pointerup", () => { this.drawing = false; this.active = -1; });
+  },
+
+  checkWin() {
+    this.recomputeDone();
+    for (let k = 0; k < this.numColors; k++) if (!this.colorDone[k]) return;
+    for (let i = 0; i < this.N; i++) if (this.cellColor[i] < 0) return;
+    this.win();
+  },
+  win() {
+    if (this.solved) return;
+    this.solved = true;
+    const secs = Math.max(1, Math.round((Date.now() - this.startT) / 1000));
+    let coins = CONFIG.puzzle.base;
+    let bonusLine = "";
+    if (secs < 30) { coins += CONFIG.puzzle.under30; bonusLine = "⚡ 30초 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under30 + "</b>"; }
+    else if (secs < 60) { coins += CONFIG.puzzle.under60; bonusLine = "⏱ 1분 미만! 스피드 보너스 <b>+" + CONFIG.puzzle.under60 + "</b>"; }
+    addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.35);
+    SAVE.stats.gamesPlayed.puzzle = (SAVE.stats.gamesPlayed.puzzle || 0) + 1;
+    saveNow();
+    SFX.catchOk();
+    fxConfetti(["⚡", "✨", "🎉", "🧩"], 14);
+    const timeTxt = Math.floor(secs / 60) + "분 " + (secs % 60) + "초";
+    later(() => showModal(
+      '<div class="m-emoji">🧩⚡</div>' +
+      '<div class="m-title">회로 완성!</div>' +
+      '<div class="m-text">걸린 시간: <b>' + timeTxt + "</b><br>" +
+        "기본 보상 <b>+" + CONFIG.puzzle.base + "</b>" + (bonusLine ? "<br>" + bonusLine : "") + "</div>" +
+      '<div class="coin-earn">🪙 +' + coins + "</div>" +
+      '<div class="m-btns" style="flex-direction:column;margin-top:14px">' +
+        '<button class="btn green" data-act="puzzle-next">🧩 다음 판 (조금 더 어려워요!)</button>' +
+        '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
+      "</div>"
+    ), 600);
+  },
+};
+
+Screens.puzzle = (el) => {
+  el.innerHTML =
+    topbarHtml({ home: true }) +
+    '<div class="pz-head">' +
+      '<span class="chip">🧩 ' + Puzzle.stage + "판</span>" +
+      '<span class="chip" id="pz-time">⏱ 0:00</span>' +
+      '<span class="chip">🔌 <span id="pz-conn">0 / 0</span></span>' +
+      '<span class="spacer"></span>' +
+      '<div class="progress" style="flex:1;max-width:120px"><i id="pz-bar"></i></div>' +
+    "</div>" +
+    '<div class="pz-board" id="pz-board"></div>' +
+    '<div class="pz-controls">' +
+      '<button class="btn ghost" style="flex:1" id="pz-clear">🧹 지우기</button>' +
+      '<button class="btn" style="flex:1" id="pz-new">🔄 새 판</button>' +
+    "</div>" +
+    '<div class="pz-hint">같은 색 단자를 손가락으로 이어요! 빈칸 없이 모두 채우면 완성 ⚡</div>';
+  const p = Puzzle.params(Puzzle.stage);
+  Puzzle.gen(p.size, p.colors);
+  Puzzle.bind($("#pz-board"));
+  $("#pz-clear").addEventListener("click", () => {
+    SFX.tap();
+    for (let k = 0; k < Puzzle.numColors; k++) Puzzle.clearColor(k);
+    Puzzle.render(); Puzzle.updateHud();
+  });
+  $("#pz-new").addEventListener("click", () => {
+    SFX.tap();
+    const np = Puzzle.params(Puzzle.stage);
+    Puzzle.gen(np.size, np.colors);
+  });
+  screenTimers.push(setInterval(() => Puzzle.tick(), 300));
+};
+
+/* ================================================================
    [S16] 몬스터볼 상점
 ================================================================ */
 Screens.shop = (el) => {
@@ -4230,6 +4538,7 @@ const Family = {
         quiz: mx(sa.gamesPlayed && sa.gamesPlayed.quiz, sb.gamesPlayed && sb.gamesPlayed.quiz),
         chain: mx(sa.gamesPlayed && sa.gamesPlayed.chain, sb.gamesPlayed && sb.gamesPlayed.chain),
         memory: mx(sa.gamesPlayed && sa.gamesPlayed.memory, sb.gamesPlayed && sb.gamesPlayed.memory),
+        puzzle: mx(sa.gamesPlayed && sa.gamesPlayed.puzzle, sb.gamesPlayed && sb.gamesPlayed.puzzle),
       },
     };
     m.partnerHp = {};
