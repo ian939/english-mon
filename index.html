@@ -2683,7 +2683,7 @@ function showScreen(name, params) {
 // 모드 3단 순환: 아이 → 부모 → 할머니 → 아이
 const MODE_ORDER = ["kid", "parent", "granny"];
 const MODE_LABEL = { kid: "👶 아이", parent: "🧑 부모", granny: "👵 할머니" };
-const GRANNY_LV_LABEL = { 1: "초등 6학년", 2: "중학생", 3: "고등학생" };
+const GRANNY_LV_LABEL = { 1: "초등", 2: "중등", 3: "고등" };
 
 // 상단 공통 바 (코인 / 볼 요약 / 홈 버튼)
 function topbarHtml(opts) {
@@ -2843,7 +2843,7 @@ Screens.home = (el) => {
     '<p class="home-sub">' + (isKidMode()
       ? "영어 단어를 맞추고 포켓몬을 모아보자!"
       : isGranny()
-        ? "👵 할머니 모드 — 해외여행 영어 (Lv" + lvOf(SAVE.grannyLevel, 1) + " " + GRANNY_LV_LABEL[lvOf(SAVE.grannyLevel, 1)] + " 수준)"
+        ? "👵 할머니 모드 — 해외여행 영어 (Lv" + lvOf(SAVE.grannyLevel, 1) + " " + GRANNY_LV_LABEL[lvOf(SAVE.grannyLevel, 1)] + ")"
         : "🧑 부모 모드 — " + (SAVE.course === "ielts" ? "IELTS Lv" + SAVE.ieltsLevel : "TOEFL") + " 단어로 함께 도감을 채워요!") + "</p>" +
     (SAVE.mode === "parent"
       ? '<div class="course-bar">' +
@@ -3021,7 +3021,7 @@ document.addEventListener("click", (e) => {
       SAVE.grannyLevel = Number(btn.dataset.lv);
       saveNow();
       showScreen("home");
-      toast("여행 영어 Lv" + SAVE.grannyLevel + " (" + GRANNY_LV_LABEL[SAVE.grannyLevel] + " 수준)로 바꿨어요", 2200);
+      toast("여행 영어 Lv" + SAVE.grannyLevel + " (" + GRANNY_LV_LABEL[SAVE.grannyLevel] + ")로 바꿨어요", 2200);
       break;
     }
     case "set-course": {
