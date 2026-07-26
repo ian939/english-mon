@@ -778,9 +778,9 @@ const CONFIG = {
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
-    poke:   { name: "몬스터볼",  emoji: "🔴", img: "poke-ball",   price: 4,  bonus: 30 },
-    super:  { name: "슈퍼볼",    emoji: "🔵", img: "great-ball",  price: 7,  bonus: 40 },
-    hyper:  { name: "하이퍼볼",  emoji: "🟡", img: "ultra-ball",  price: 10, bonus: 60 },
+    poke:   { name: "몬스터볼",  emoji: "🔴", img: "poke-ball",   price: 8,  bonus: 30 },
+    super:  { name: "슈퍼볼",    emoji: "🔵", img: "great-ball",  price: 10, bonus: 40 },
+    hyper:  { name: "하이퍼볼",  emoji: "🟡", img: "ultra-ball",  price: 15, bonus: 60 },
     master: { name: "마스터볼",  emoji: "🟣", img: "master-ball", price: 20, bonus: 80 },
   },
   partnerHealMs: 24 * 60 * 60 * 1000, // 파트너 HP 전체 회복까지 24시간
@@ -2680,10 +2680,10 @@ function showScreen(name, params) {
   window.scrollTo(0, 0);
 }
 
-// 모드 3단 순환: 아이 → 부모 → 할머니 → 아이
-const MODE_ORDER = ["kid", "parent", "granny"];
-const MODE_LABEL = { kid: "👶 아이", parent: "🧑 부모", granny: "👵 할머니" };
-const GRANNY_LV_LABEL = { 1: "초등", 2: "중등", 3: "고등" };
+// 모드 순환: 아이 → 부모 → 이모 → 할머니 → 아이
+// (이모는 부모와 학습 내용이 같고, 가족 톡에서 보낸 사람만 구분됨)
+const MODE_ORDER = ["kid", "parent", "aunt", "granny"];
+const MODE_LABEL = { kid: "👶 아이", parent: "🧑 부모", aunt: "👩 이모", granny: "👵 할머니" };
 
 // 상단 공통 바 (코인 / 볼 요약 / 홈 버튼)
 function topbarHtml(opts) {
@@ -2843,9 +2843,9 @@ Screens.home = (el) => {
     '<p class="home-sub">' + (isKidMode()
       ? "영어 단어를 맞추고 포켓몬을 모아보자!"
       : isGranny()
-        ? "👵 할머니 모드 — 해외여행 영어 (Lv" + lvOf(SAVE.grannyLevel, 1) + " " + GRANNY_LV_LABEL[lvOf(SAVE.grannyLevel, 1)] + ")"
-        : "🧑 부모 모드 — " + (SAVE.course === "ielts" ? "IELTS Lv" + SAVE.ieltsLevel : "TOEFL") + " 단어로 함께 도감을 채워요!") + "</p>" +
-    (SAVE.mode === "parent"
+        ? "👵 할머니 모드 — 해외여행 영어 (Lv" + lvOf(SAVE.grannyLevel, 1) + ")"
+        : MODE_LABEL[SAVE.mode] + " 모드 — " + (SAVE.course === "ielts" ? "IELTS Lv" + SAVE.ieltsLevel : "TOEFL") + " 단어로 함께 도감을 채워요!") + "</p>" +
+    (isAdult()
       ? '<div class="course-bar">' +
         '<button class="course-btn' + (SAVE.course !== "ielts" ? " on" : "") + '" data-act="set-course" data-course="toefl">TOEFL</button>' +
         '<button class="course-btn' + (SAVE.course === "ielts" ? " on" : "") + '" data-act="set-course" data-course="ielts">IELTS</button>' +
@@ -3012,7 +3012,7 @@ document.addEventListener("click", (e) => {
       SFX.buy();
       showScreen("home");
       toast(SAVE.mode === "kid" ? "👶 아이 모드! 초등 영어 단어로 출제돼요"
-        : SAVE.mode === "parent" ? "🧑 부모 모드! " + (SAVE.course === "ielts" ? "IELTS" : "TOEFL") + " 단어로 출제돼요"
+        : isAdult() ? MODE_LABEL[SAVE.mode] + " 모드! " + (SAVE.course === "ielts" ? "IELTS" : "TOEFL") + " 단어로 출제돼요"
         : "👵 할머니 모드! 해외여행 영어 — 여행 회화도 할 수 있어요 ✈️", 2800);
       break;
     }
@@ -3021,7 +3021,7 @@ document.addEventListener("click", (e) => {
       SAVE.grannyLevel = Number(btn.dataset.lv);
       saveNow();
       showScreen("home");
-      toast("여행 영어 Lv" + SAVE.grannyLevel + " (" + GRANNY_LV_LABEL[SAVE.grannyLevel] + ")로 바꿨어요", 2200);
+      toast("여행 영어 Lv" + SAVE.grannyLevel + "로 바꿨어요", 2000);
       break;
     }
     case "set-course": {
@@ -3590,16 +3590,18 @@ const WORD_SETS = {
   WORD_SETS["travel" + lv] = { words: tw, categories: CATEGORIES_TRAVEL, startIndex: buildStartIndex(tw) };
 });
 const lvOf = (v, dflt) => ([1, 2, 3].includes(v) ? v : dflt);
+const isKidMode = () => SAVE.mode === "kid";       // 아이 전용 기능(문장 문제 등)
+const isGranny = () => SAVE.mode === "granny";     // 할머니(해외여행) 모드
+// 어른 모드(부모·이모) — 학습 내용은 동일, 가족 톡에서만 구분됨
+const isAdult = () => SAVE.mode === "parent" || SAVE.mode === "aunt";
+const hintsOn = () => !isAdult();                  // 힌트: 아이·할머니 O, 어른 X(하드모드)
 const activeSet = () => {
-  if (SAVE.mode === "granny") return WORD_SETS["travel" + lvOf(SAVE.grannyLevel, 1)];
-  if (SAVE.mode !== "parent") return WORD_SETS.kid;
+  if (isGranny()) return WORD_SETS["travel" + lvOf(SAVE.grannyLevel, 1)];
+  if (!isAdult()) return WORD_SETS.kid;
   if (SAVE.course === "ielts") return WORD_SETS["ielts" + lvOf(SAVE.ieltsLevel, 2)];
   return WORD_SETS.parent;
 };
 const activeWords = () => activeSet().words;
-const isKidMode = () => SAVE.mode === "kid";       // 아이 전용 기능(문장 문제 등)
-const isGranny = () => SAVE.mode === "granny";     // 할머니(해외여행) 모드
-const hintsOn = () => SAVE.mode !== "parent";      // 힌트: 아이·할머니 O, 부모 X(하드모드)
 // 할머니 모드는 발음을 더 천천히
 const speakRate = () => (isGranny() ? 0.72 : 0.85);
 // 제시어로 쓸 수 있는 단어: 끝글자로 시작하는 다른 단어가 1개 이상
@@ -4997,8 +4999,9 @@ Screens.pokedex = (el) => {
    - 코인·볼은 기기별 누적 카운터 합산이라 동시에 놀아도 안 꼬임
    - 로컬 저장이 항상 우선: 인터넷이 끊겨도 게임은 정상, 연결되면 자동 병합
 ================================================================ */
-function chatRole() { return SAVE.mode === "parent" ? "parent" : SAVE.mode === "granny" ? "granny" : "kid"; }
-const CHAT_WHO = { parent: "🧑 부모", granny: "👵 할머니", kid: "👶 아이" };
+// 가족 톡 보낸 사람 = 현재 모드 (아이/부모/이모/할머니)
+function chatRole() { return MODE_LABEL[SAVE.mode] ? SAVE.mode : "kid"; }
+const CHAT_WHO = MODE_LABEL;
 
 const Family = {
   LKEY: "engmon_family_v1",
