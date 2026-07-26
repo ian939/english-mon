@@ -617,6 +617,47 @@ img { -webkit-user-drag: none; }
 .ally-hp > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .4s; }
 .ally-hp > i.low { background: linear-gradient(90deg, #ff8c42, #ffb703); }
 
+/* ===== 여행 회화 (할머니 모드) ===== */
+.tv-sit {
+  display: inline-block; background: #eaf6ff; color: #1f66d0;
+  font-size: 14px; font-weight: 900; border-radius: 999px; padding: 5px 14px; margin-bottom: 10px;
+}
+.tv-ko { font-size: 21px; font-weight: 900; color: var(--ink); line-height: 1.4; margin-bottom: 6px; }
+.tv-en { font-size: 18px; font-weight: 800; line-height: 1.35; text-align: center; }
+.tv-choice { min-height: 62px; padding: 12px 14px; }
+
+/* ===== 할머니 모드 접근성 — 큰 글자·큰 버튼 (다른 모드는 영향 없음) ===== */
+body.granny .home-sub { font-size: 17px; }
+body.granny .mode-btn .mt { font-size: 21px; }
+body.granny .mode-btn .md { font-size: 14.5px; }
+body.granny .choice { min-height: 86px; padding: 16px 12px; }
+body.granny .choice .en { font-size: 25px; }
+body.granny .choice .ko { font-size: 20px; }
+body.granny .choice .em { font-size: 34px; }
+body.granny .tv-choice { min-height: 74px; }
+body.granny .tv-en { font-size: 21px; }
+body.granny .tv-ko { font-size: 25px; }
+body.granny .tv-sit { font-size: 15.5px; }
+body.granny .prompt-ko { font-size: 30px; }
+body.granny .prompt-en { font-size: clamp(38px, 10vw, 50px); }
+body.granny .prompt-hint { font-size: 16.5px; }
+body.granny .speak-btn { width: 104px; height: 104px; font-size: 50px; }
+body.granny .speak-btn.small { width: 58px; height: 58px; font-size: 27px; }
+body.granny .spell-tile { width: 62px; height: 66px; font-size: 32px; }
+body.granny .spell-slot { width: 52px; height: 60px; font-size: 36px; }
+/* 문장 타일·슬롯은 내용에 맞춰 늘어나야 함 (위 .spell-tile 고정 너비를 반드시 해제) */
+body.granny .spell-tile.word-tile { width: auto; min-width: 58px; height: 60px; font-size: 22px; padding: 0 18px; }
+body.granny .spell-slot.word-slot { width: auto; min-width: 50px; height: 56px; font-size: 20px; padding: 0 12px; }
+body.granny .btn { font-size: 20px; padding: 16px 22px; }
+body.granny .btn.big { font-size: 24px; padding: 20px 26px; }
+body.granny .chip { font-size: 17px; padding: 9px 15px; }
+body.granny .answer-banner .bn { font-size: 30px; }
+body.granny .answer-banner .bk { font-size: 18px; }
+body.granny .dex-cell .dn { font-size: 12px; }
+body.granny .bubble { font-size: 17px; }
+body.granny .chat-inputrow input { font-size: 17px; padding: 15px; }
+body.granny .stamp { font-size: 15px; padding: 10px 15px; }
+
 /* ===== 퍼즐 모드 (전기 회로 잇기) ===== */
 .pz-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .pz-board {
@@ -1352,6 +1393,320 @@ const WORDS_IELTS = [];
 }
 
 /* ================================================================
+   [S4D] 할머니 모드 단어 — 해외여행 실전 (레벨 1·2·3 × 150개, id 3001~)
+   Lv1: 초6 수준(눈에 보이는 것·급할 때) / Lv2: 중1~3(실전 절차) / Lv3: 고1~2(안내문·상황 대응)
+================================================================ */
+const CATEGORIES_TRAVEL = [
+  { key: "tair",  ko: "공항·비행",   emoji: "✈️" },
+  { key: "thtl",  ko: "숙소·호텔",   emoji: "🏨" },
+  { key: "tfood", ko: "식당·음식",   emoji: "🍽️" },
+  { key: "tway",  ko: "길찾기·교통", emoji: "🚇" },
+  { key: "tshop", ko: "쇼핑·돈",     emoji: "🛍️" },
+  { key: "thelp", ko: "도움·건강",   emoji: "🆘" },
+];
+
+const WORDS_TRAVEL = [];
+{
+  let _id = 3000;
+  const catEmoji = {};
+  CATEGORIES_TRAVEL.forEach(c => { catEmoji[c.key] = c.emoji; });
+  const add = (cat, lv, list) => list.forEach(e => {
+    WORDS_TRAVEL.push({ id: ++_id, en: e[0], ko: e[1], emoji: e[2] || catEmoji[cat], cat, lv, color: null });
+  });
+
+  /* ---------- 레벨 1 (초6 수준 · 여행 기초) ---------- */
+  add("tair", 1, [
+    ["airport","공항"], ["airplane","비행기","✈️"], ["ticket","표(티켓)","🎫"], ["passport","여권","🛂"],
+    ["bag","가방","👜"], ["seat","좌석","💺"], ["window","창문","🪟"], ["line","줄(대기줄)"],
+    ["gate","탑승구(게이트)","🚪"], ["time","시간","⏰"], ["wait","기다리다"], ["arrive","도착하다"],
+    ["leave","떠나다"], ["safe","안전한"], ["light","가벼운","🎈"], ["heavy","무거운","🏋️"],
+    ["open","열다","🔓"], ["close","닫다","🔒"], ["find","찾다","🔍"], ["show","보여주다"],
+    ["carry","들고 가다"], ["check","확인하다","✅"], ["ready","준비된"], ["late","늦은"], ["early","이른"],
+  ]);
+  add("thtl", 1, [
+    ["hotel","호텔"], ["room","방","🛏️"], ["key","열쇠","🔑"], ["bed","침대","🛏️"],
+    ["towel","수건","🧻"], ["soap","비누","🧼"], ["shower","샤워","🚿"], ["blanket","이불"],
+    ["pillow","베개"], ["kitchen","주방","🍳"], ["window view","창밖 풍경","🌆"], ["floor","층(바닥)"],
+    ["elevator","엘리베이터","🛗"], ["stairs","계단"], ["quiet","조용한","🤫"], ["clean","깨끗한","✨"],
+    ["dirty","더러운"], ["hot water","뜨거운 물","♨️"], ["cold","차가운","🥶"], ["night","밤","🌃"],
+    ["morning","아침","🌅"], ["sleep","자다","😴"], ["rest","쉬다"], ["stay","머무르다"], ["wake up","일어나다","⏰"],
+  ]);
+  add("tfood", 1, [
+    ["restaurant","식당"], ["menu","메뉴","📋"], ["water","물","💧"], ["rice","밥","🍚"],
+    ["soup","국(수프)","🍲"], ["bread","빵","🍞"], ["meat","고기","🥩"], ["fish","생선","🐟"],
+    ["fruit","과일","🍎"], ["coffee","커피","☕"], ["tea","차","🍵"], ["milk","우유","🥛"],
+    ["spoon","숟가락","🥄"], ["fork","포크","🍴"], ["napkin","냅킨"], ["plate","접시","🍽️"],
+    ["order","주문하다"], ["eat","먹다","😋"], ["drink","마시다","🥤"], ["delicious","맛있는","😍"],
+    ["spicy","매운","🌶️"], ["sweet","달콤한","🍭"], ["salty","짠","🧂"], ["hungry","배고픈","🤤"], ["full","배부른"],
+  ]);
+  add("tway", 1, [
+    ["map","지도","🗺️"], ["bus","버스","🚌"], ["taxi","택시","🚕"], ["train","기차","🚆"],
+    ["subway","지하철","🚇"], ["station","역","🚉"], ["street","길(거리)","🛣️"], ["corner","모퉁이"],
+    ["left","왼쪽","⬅️"], ["right","오른쪽","➡️"], ["straight","직진(곧장)","⬆️"], ["near","가까운"],
+    ["far","먼"], ["here","여기","📍"], ["there","저기"], ["walk","걷다","🚶"],
+    ["stop","멈추다","🛑"], ["turn","돌다"], ["cross","건너다","🚸"], ["bridge","다리(건너는)","🌉"],
+    ["park","공원","🏞️"], ["beach","해변","🏖️"], ["market","시장","🛒"], ["church","교회","⛪"], ["museum","박물관","🏛️"],
+  ]);
+  add("tshop", 1, [
+    ["shop","가게","🏪"], ["price","가격","🏷️"], ["money","돈","💰"], ["cash","현금","💵"],
+    ["card","카드","💳"], ["change","잔돈(거스름돈)","🪙"], ["bill","계산서","🧾"], ["cheap","싼"],
+    ["expensive","비싼","💸"], ["free","무료의","🆓"], ["big","큰"], ["small","작은","🤏"],
+    ["color","색깔","🎨"], ["size","크기(사이즈)","📏"], ["buy","사다","🛍️"], ["pay","지불하다"],
+    ["gift","선물","🎁"], ["bottle","병","🍶"], ["box","상자","📦"], ["yen","엔화(일본 돈)","💴"],
+    ["try","해 보다"], ["like","마음에 들다","👍"], ["want","원하다"], ["need","필요하다"], ["thank you","감사합니다","🙏"],
+  ]);
+  add("thelp", 1, [
+    ["help","도움","🆘"], ["police","경찰","👮"], ["hospital","병원","🏥"], ["doctor","의사","👨‍⚕️"],
+    ["nurse","간호사","👩‍⚕️"], ["medicine","약","💊"], ["pain","아픔(통증)","😖"], ["sick","아픈","🤒"],
+    ["hurt","다치다"], ["head","머리","🤕"], ["stomach","배(위)"], ["tooth","이(치아)","🦷"],
+    ["cough","기침","😷"], ["fever","열","🌡️"], ["rest here","여기서 쉬다"], ["lost","길을 잃은","😵"],
+    ["phone","전화","📱"], ["call","전화하다","📞"], ["wallet","지갑","👛"], ["bathroom","화장실","🚻"],
+    ["danger","위험","⚠️"], ["careful","조심하는"], ["slow","느린(천천히)","🐌"], ["again","다시","🔁"], ["sorry","미안합니다"],
+  ]);
+
+  /* ---------- 레벨 2 (중1~3 수준 · 실전 절차) ---------- */
+  add("tair", 2, [
+    ["boarding pass","탑승권","🎟️"], ["check-in counter","체크인 카운터"], ["departure","출발"], ["arrival","도착"],
+    ["terminal","터미널"], ["aisle seat","통로쪽 좌석"], ["window seat","창가 좌석"], ["overhead bin","머리 위 짐칸"],
+    ["seat belt","안전벨트"], ["tray table","좌석 테이블"], ["carry-on","기내 수하물"], ["checked bag","위탁 수하물"],
+    ["baggage claim","수하물 찾는 곳"], ["security check","보안 검사"], ["metal detector","금속 탐지기"], ["scale","(무게) 저울","⚖️"],
+    ["weight","무게"], ["delay","지연"], ["cancel","취소하다"], ["board","탑승하다"],
+    ["land","착륙하다"], ["take off","이륙하다"], ["turbulence","기류(흔들림)"], ["flight attendant","승무원","🧑‍✈️"], ["emergency exit","비상구","🚪"],
+  ]);
+  add("thtl", 2, [
+    ["reservation","예약","📅"], ["front desk","프런트 데스크"], ["lobby","로비"], ["single room","1인실"],
+    ["double room","2인실"], ["available","이용 가능한"], ["book","예약하다"], ["confirm","확인해 주다"],
+    ["deposit","보증금"], ["extra bed","추가 침대"], ["air conditioner","에어컨","❄️"], ["heater","난방기","🔥"],
+    ["hair dryer","헤어드라이어"], ["safe box","금고","🔐"], ["laundry","세탁","🧺"], ["housekeeping","객실 청소"],
+    ["breakfast","조식","🍳"], ["included","포함된"], ["check out","체크아웃하다"], ["luggage storage","짐 보관"],
+    ["wake-up call","모닝콜"], ["Wi-Fi password","와이파이 비번","📶"], ["noisy","시끄러운","📢"], ["broken","고장 난"], ["fix","고쳐 주다","🔧"],
+  ]);
+  add("tfood", 2, [
+    ["waiter","종업원","🧑‍🍳"], ["table for two","2인석"], ["recommend","추천하다"], ["specialty","(가게) 대표 요리"],
+    ["appetizer","전채 요리"], ["main dish","메인 요리"], ["dessert","후식","🍰"], ["beverage","음료","🥤"],
+    ["vegetarian","채식주의자","🥗"], ["allergy","알레르기"], ["peanut","땅콩","🥜"], ["seafood","해산물","🦐"],
+    ["raw","익히지 않은"], ["well done","잘 익힌"], ["refill","리필(다시 채움)"], ["takeout","포장 주문"],
+    ["tip","팁(봉사료)"], ["split the bill","계산 나누기"], ["tax","세금"], ["reserve","(자리를) 예약하다"],
+    ["taste","맛보다","👅"], ["fresh","신선한"], ["greasy","기름진"], ["sour","맛이 신","🍋"], ["portion","1인분(양)"],
+  ]);
+  add("tway", 2, [
+    ["platform","(역) 플랫폼"], ["one-way ticket","편도 표"], ["round trip","왕복"], ["transfer","환승하다"],
+    ["route","경로(노선)"], ["direction","방향","🧭"], ["timetable","시간표"], ["last train","막차"],
+    ["fare","교통 요금"], ["exit number","출구 번호"], ["entrance","입구"], ["kiosk","키오스크(무인 단말기)"],
+    ["rental car","렌터카","🚗"], ["driver","운전기사"], ["destination","목적지","🏁"], ["address","주소","🏠"],
+    ["intersection","교차로","🚦"], ["traffic","교통(혼잡)"], ["block","(길) 블록"], ["sidewalk","인도(보도)"],
+    ["parking lot","주차장","🅿️"], ["gas station","주유소","⛽"], ["ferry","여객선","⛴️"], ["harbor","항구","⚓"], ["youth hostel","유스호스텔"],
+  ]);
+  add("tshop", 2, [
+    ["receipt","영수증","🧾"], ["refund","환불"], ["exchange","교환하다"], ["discount","할인"],
+    ["sale","세일(할인 판매)"], ["fitting room","피팅룸(탈의실)"], ["try on","입어 보다"], ["souvenir","기념품","🎁"],
+    ["local product","지역 특산품"], ["duty-free","면세의"], ["currency","통화(화폐)"], ["exchange rate","환율"],
+    ["coin","동전","🪙"], ["banknote","지폐","💵"], ["credit card","신용카드","💳"], ["signature","서명","✍️"],
+    ["total","총액"], ["per person","1인당"], ["quality","품질"], ["brand","브랜드"],
+    ["package","포장(꾸러미)"], ["fragile","깨지기 쉬운"], ["wrap","포장해 주다","🎀"], ["price tag","가격표","🏷️"], ["bargain","값을 깎다"],
+  ]);
+  add("thelp", 2, [
+    ["pharmacy","약국","💊"], ["prescription","처방전"], ["painkiller","진통제"], ["bandage","붕대(반창고)","🩹"],
+    ["symptom","증상"], ["dizzy","어지러운","😵‍💫"], ["nausea","메스꺼움"], ["diarrhea","설사"],
+    ["food poisoning","식중독"], ["insurance","보험"], ["emergency","응급 상황","🚨"], ["ambulance","구급차","🚑"],
+    ["embassy","대사관","🏛️"], ["report","신고하다"], ["stolen","도난당한"], ["missing","분실된"],
+    ["lost and found","분실물 센터"], ["translate","통역(번역)하다"], ["interpreter","통역사"], ["passport number","여권 번호"],
+    ["contact","연락하다","📞"], ["assist","도와주다"], ["allergic","알레르기가 있는"], ["blood pressure","혈압"], ["clinic","진료소","🏥"],
+  ]);
+
+  /* ---------- 레벨 3 (고1~2 수준 · 안내문·상황 대응) ---------- */
+  add("tair", 3, [
+    ["itinerary","여행 일정표"], ["layover","경유 대기"], ["connecting flight","연결 항공편"], ["boarding time","탑승 시각"],
+    ["final call","최종 탑승 안내"], ["standby","대기(스탠바이)"], ["overbooked","초과 예약된"], ["upgrade","좌석 승급"],
+    ["complimentary","무료로 제공되는"], ["customs","세관"], ["declare","(세관에) 신고하다"], ["immigration","입국 심사"],
+    ["visa","비자"], ["valid","유효한"], ["expire","만료되다"], ["duration of stay","체류 기간"],
+    ["purpose of visit","방문 목적"], ["baggage allowance","수하물 허용량"], ["excess baggage","초과 수하물"], ["fragile handling","취급 주의"],
+    ["restricted item","제한 품목"], ["liquid limit","액체류 제한"], ["boarding denied","탑승 거부"], ["compensation","보상"], ["reschedule","일정을 다시 잡다"],
+  ]);
+  add("thtl", 3, [
+    ["accommodation","숙소(숙박 시설)"], ["vacancy","빈 방"], ["occupancy","(객실) 이용 인원"], ["rate","숙박 요금"],
+    ["per night","1박당"], ["amenities","편의 물품"], ["facility","시설"], ["complimentary breakfast","무료 조식"],
+    ["late check-out","늦은 체크아웃"], ["early check-in","이른 체크인"], ["cancellation policy","취소 규정"], ["non-refundable","환불 불가의"],
+    ["voucher","교환권(바우처)"], ["confirmation number","예약 확인 번호"], ["accommodate","(요청을) 수용하다"], ["inquire","문의하다"],
+    ["complaint","불만(항의)"], ["maintenance","보수(정비)"], ["out of order","고장 중"], ["adjacent room","옆방"],
+    ["scenic view","전망 좋은 경관"], ["shuttle service","셔틀 운행"], ["concierge","컨시어지(안내 직원)"], ["valet parking","대리 주차"], ["security deposit","보증금"],
+  ]);
+  add("tfood", 3, [
+    ["cuisine","(그 지역) 요리"], ["signature dish","대표 메뉴"], ["seasonal","제철의"], ["ingredient","재료"],
+    ["dietary restriction","식단 제한"], ["gluten-free","글루텐 없는"], ["lactose","유당"], ["substitute","대체하다"],
+    ["garnish","곁들임 장식"], ["marinated","양념에 재운"], ["grilled","구운"], ["steamed","찐"],
+    ["service charge","봉사료"], ["gratuity","팁(감사금)"], ["complimentary water","무료로 주는 물"], ["reservation confirmed","예약 확정된"],
+    ["walk-in","예약 없이 온 손님"], ["waiting list","대기 명단"], ["separate check","각자 계산서"], ["leftover","남은 음식"],
+    ["to-go box","남은 음식 포장 용기"], ["overcooked","너무 익힌"], ["undercooked","덜 익힌"], ["refill available","리필 가능한"], ["hygiene","위생"],
+  ]);
+  add("tway", 3, [
+    ["public transportation","대중교통"], ["commuter pass","정기 승차권"], ["day pass","1일 승차권"], ["validate","(표를) 개찰하다"],
+    ["turnstile","개찰구"], ["detour","우회로"], ["under construction","공사 중"], ["out of service","운행하지 않는"],
+    ["express","급행의"], ["local train","완행 열차"], ["reserved seat","지정석"], ["unreserved","자유석의"],
+    ["overnight bus","야간 버스"], ["estimated time","예상 소요 시간"], ["approximately","대략"], ["landmark","눈에 띄는 건물(랜드마크)"],
+    ["pedestrian crossing","횡단보도"], ["one-way street","일방통행 도로"], ["toll road","유료 도로"], ["speed limit","제한 속도"],
+    ["guided tour","가이드 투어"], ["admission fee","입장료"], ["opening hours","운영 시간"], ["accessible","(이용) 편리한·무장애의"], ["yield","(차량이) 양보하다"],
+  ]);
+  add("tshop", 3, [
+    ["tax refund","세금 환급"], ["eligible","자격이 되는"], ["proof of purchase","구매 증빙"], ["warranty","품질 보증(서)"],
+    ["authentic","진품의"], ["counterfeit","위조품의"], ["clearance sale","재고 정리 할인"], ["bulk purchase","대량 구매"],
+    ["installment","분할 납부"], ["surcharge","추가 요금"], ["exchange policy","교환 규정"], ["store credit","매장 적립금"],
+    ["out of stock","품절된"], ["in stock","재고가 있는"], ["custom-made","주문 제작된"], ["handcrafted","수공예의"],
+    ["negotiable","협상 가능한"], ["itemized bill","항목별 계산서"], ["service included","봉사료 포함"], ["convert","(돈을) 환전하다"],
+    ["commission fee","수수료"], ["withdraw","(돈을) 인출하다"], ["ATM","현금인출기","🏧"], ["contactless","비접촉 결제의"], ["expenditure","지출"],
+  ]);
+  add("thelp", 3, [
+    ["medical certificate","진단서"], ["chronic condition","만성 질환"], ["medication","(복용) 약물"], ["dosage","복용량"],
+    ["side effect","부작용"], ["allergic reaction","알레르기 반응"], ["dehydration","탈수"], ["heatstroke","열사병"],
+    ["altitude sickness","고산병"], ["jet lag","시차 피로"], ["vaccination","예방 접종"], ["quarantine","격리"],
+    ["travel insurance","여행자 보험"], ["claim","보험금을 청구하다"], ["coverage","보장 범위"], ["reimburse","(비용을) 환급하다"],
+    ["consulate","영사관"], ["file a report","신고서를 접수하다"], ["theft","절도"], ["pickpocket","소매치기"],
+    ["suspicious","의심스러운"], ["evacuate","대피하다"], ["first aid","응급 처치"], ["urgent care","긴급 진료"], ["next of kin","비상 연락 가족"],
+  ]);
+}
+
+/* ================================================================
+   [S4E] 여행 회화 문장 — 레벨별 40개 × 3 = 120개 (id 4001~)
+   { en, ko, sit(상황 라벨), lv }  · 단어 타일 배열이 가능하도록 12토큰 이하
+================================================================ */
+const PHRASES_TRAVEL = [];
+{
+  let _id = 4000;
+  const add = (lv, list) => list.forEach(e => {
+    PHRASES_TRAVEL.push({ id: ++_id, en: e[0], ko: e[1], sit: e[2], lv });
+  });
+
+  add(1, [
+    ["Where is the bathroom?", "화장실이 어디예요?", "🚻 급할 때"],
+    ["How much is this?", "이거 얼마예요?", "🛍️ 가게에서"],
+    ["Help me, please.", "도와주세요.", "🆘 도움 요청"],
+    ["I don't understand.", "잘 모르겠어요.", "🗣️ 대화 중"],
+    ["Please speak slowly.", "천천히 말해 주세요.", "🗣️ 대화 중"],
+    ["Do you speak Korean?", "한국어 하세요?", "🗣️ 대화 중"],
+    ["I am Korean.", "저는 한국 사람이에요.", "🗣️ 자기소개"],
+    ["Thank you very much.", "정말 감사합니다.", "🙏 인사"],
+    ["Excuse me.", "실례합니다.", "🙏 인사"],
+    ["I am sorry.", "미안합니다.", "🙏 인사"],
+    ["Where is the airport?", "공항이 어디예요?", "✈️ 공항"],
+    ["This is my passport.", "제 여권이에요.", "🛂 입국 심사"],
+    ["Where is my bag?", "제 가방이 어디 있어요?", "🧳 짐 찾기"],
+    ["Is this seat mine?", "이 자리가 제 자리예요?", "💺 기내"],
+    ["Can I have water?", "물 좀 주시겠어요?", "💺 기내"],
+    ["I want to check in.", "체크인하고 싶어요.", "🏨 호텔"],
+    ["This is my room key.", "이게 제 방 열쇠예요.", "🏨 호텔"],
+    ["The room is very nice.", "방이 아주 좋아요.", "🏨 호텔"],
+    ["I need a towel.", "수건이 필요해요.", "🏨 호텔"],
+    ["What time is breakfast?", "아침 식사는 몇 시예요?", "🍳 호텔 조식"],
+    ["A table for two, please.", "두 명 자리 주세요.", "🍽️ 식당"],
+    ["Can I see the menu?", "메뉴 좀 볼 수 있어요?", "🍽️ 식당"],
+    ["I will have this one.", "이걸로 할게요.", "🍽️ 주문"],
+    ["It is very delicious.", "아주 맛있어요.", "🍽️ 식사 중"],
+    ["It is too spicy for me.", "저한테는 너무 매워요.", "🍽️ 식사 중"],
+    ["The bill, please.", "계산서 주세요.", "🧾 계산"],
+    ["Can I pay by card?", "카드로 계산할 수 있어요?", "💳 계산"],
+    ["Where is the subway?", "지하철이 어디예요?", "🚇 길찾기"],
+    ["I want to go here.", "여기 가고 싶어요.", "🚕 택시"],
+    ["Please stop here.", "여기서 멈춰 주세요.", "🚕 택시"],
+    ["Is it near or far?", "가까워요, 멀어요?", "🚇 길찾기"],
+    ["Turn left, please.", "왼쪽으로 가 주세요.", "🚕 택시"],
+    ["I am lost.", "길을 잃었어요.", "😵 길찾기"],
+    ["Can you help me find it?", "찾는 걸 도와주실 수 있어요?", "🆘 도움 요청"],
+    ["Do you have a smaller size?", "더 작은 사이즈 있어요?", "🛍️ 쇼핑"],
+    ["I will take it.", "이거 살게요.", "🛍️ 쇼핑"],
+    ["Where is the hospital?", "병원이 어디예요?", "🏥 건강"],
+    ["I feel sick.", "몸이 안 좋아요.", "🤒 건강"],
+    ["My head hurts.", "머리가 아파요.", "🤕 건강"],
+    ["Please call the police.", "경찰을 불러 주세요.", "👮 긴급"],
+  ]);
+
+  add(2, [
+    ["I'd like to check in, please.", "체크인하고 싶습니다.", "🏨 호텔 프런트"],
+    ["I have a reservation under Kim.", "김으로 예약했어요.", "🏨 호텔 프런트"],
+    ["Could I have a room with a view?", "전망 좋은 방으로 받을 수 있을까요?", "🏨 호텔 프런트"],
+    ["What time do I have to check out?", "체크아웃은 몇 시까지예요?", "🏨 호텔"],
+    ["Could you keep my luggage until evening?", "저녁까지 짐을 맡아 주실 수 있어요?", "🧳 호텔"],
+    ["The air conditioner is not working.", "에어컨이 작동하지 않아요.", "🔧 호텔 문제"],
+    ["Could you send someone to fix it?", "고쳐 줄 사람을 보내 주시겠어요?", "🔧 호텔 문제"],
+    ["Is breakfast included in the price?", "가격에 아침 식사가 포함돼 있나요?", "🍳 호텔 조식"],
+    ["What is the Wi-Fi password?", "와이파이 비밀번호가 뭐예요?", "📶 호텔"],
+    ["Does this bus go to the airport?", "이 버스가 공항에 가나요?", "🚌 교통"],
+    ["Where can I buy a ticket?", "표는 어디서 살 수 있어요?", "🎫 교통"],
+    ["How long does it take to get there?", "거기까지 얼마나 걸려요?", "🚇 교통"],
+    ["Do I have to transfer somewhere?", "어디서 환승해야 하나요?", "🚇 교통"],
+    ["Which exit should I take?", "몇 번 출구로 나가야 해요?", "🚇 지하철"],
+    ["Could you take a photo of us?", "저희 사진 좀 찍어 주시겠어요?", "📷 관광"],
+    ["Is there an English guide available?", "영어 안내가 있나요?", "🗺️ 관광"],
+    ["What time does it open and close?", "몇 시에 열고 닫아요?", "🏛️ 관광"],
+    ["I'd like to reserve a table for four.", "네 명 자리를 예약하고 싶어요.", "🍽️ 식당 예약"],
+    ["What do you recommend here?", "여기서 뭘 추천하시나요?", "🍽️ 주문"],
+    ["I am allergic to peanuts.", "저는 땅콩 알레르기가 있어요.", "🥜 식당 주의"],
+    ["Could you make it less spicy?", "덜 맵게 해 주실 수 있어요?", "🌶️ 주문"],
+    ["I'd like it well done, please.", "잘 익혀 주세요.", "🥩 주문"],
+    ["Could we have separate checks?", "계산서를 따로 해 주실 수 있어요?", "🧾 계산"],
+    ["Could I get this to go?", "이거 포장해 주실 수 있어요?", "🥡 식당"],
+    ["Excuse me, this is not what I ordered.", "죄송한데 제가 주문한 게 아니에요.", "🍽️ 식당 문제"],
+    ["Do you accept credit cards?", "신용카드 받으세요?", "💳 계산"],
+    ["Could I have a receipt, please?", "영수증 주시겠어요?", "🧾 계산"],
+    ["I'd like to exchange this, please.", "이걸 교환하고 싶어요.", "🛍️ 교환"],
+    ["Can I get a refund for this?", "이거 환불받을 수 있어요?", "🛍️ 환불"],
+    ["Could you give me a discount?", "할인해 주실 수 있어요?", "🛍️ 흥정"],
+    ["May I try this on?", "이거 입어 봐도 돼요?", "👕 쇼핑"],
+    ["Where is the fitting room?", "탈의실이 어디예요?", "👕 쇼핑"],
+    ["I would like to exchange some money.", "환전하고 싶습니다.", "💱 은행"],
+    ["Where is the nearest pharmacy?", "가장 가까운 약국이 어디예요?", "💊 건강"],
+    ["I need some medicine for a cold.", "감기약이 필요해요.", "💊 약국"],
+    ["I have a fever and a sore throat.", "열이 나고 목이 아파요.", "🤒 병원"],
+    ["My wallet was stolen.", "지갑을 도난당했어요.", "🚨 긴급"],
+    ["I lost my passport.", "여권을 잃어버렸어요.", "🛂 긴급"],
+    ["Could you call an ambulance?", "구급차를 불러 주시겠어요?", "🚑 긴급"],
+    ["Could you write it down for me?", "그걸 적어 주시겠어요?", "✍️ 대화"],
+  ]);
+
+  add(3, [
+    ["Could you tell me where the baggage claim is?", "수하물 찾는 곳이 어딘지 알려 주시겠어요?", "🧳 공항 도착"],
+    ["I have a connecting flight to Rome.", "로마로 가는 연결 항공편이 있어요.", "✈️ 환승"],
+    ["How long is the layover?", "경유 대기 시간이 얼마나 되나요?", "✈️ 환승"],
+    ["I'd like an aisle seat if possible.", "가능하면 통로쪽 좌석을 원해요.", "💺 체크인"],
+    ["Is there any chance of an upgrade?", "좌석 승급 가능성이 있을까요?", "💺 체크인"],
+    ["I have nothing to declare.", "신고할 물건이 없습니다.", "🛂 세관"],
+    ["I am here for sightseeing for ten days.", "열흘간 관광하러 왔습니다.", "🛂 입국 심사"],
+    ["My flight was delayed, so I missed my connection.", "항공편이 지연돼서 연결편을 놓쳤어요.", "✈️ 문제 해결"],
+    ["Could you help me rebook this flight?", "이 항공편을 다시 예약하도록 도와주시겠어요?", "✈️ 문제 해결"],
+    ["Is my baggage within the allowance?", "제 수하물이 허용량 안에 들어가나요?", "⚖️ 체크인"],
+    ["Could I request a late check-out, please?", "늦은 체크아웃을 요청할 수 있을까요?", "🏨 호텔"],
+    ["What is your cancellation policy?", "취소 규정이 어떻게 되나요?", "🏨 예약"],
+    ["Is this rate per night or for the whole stay?", "이 요금이 1박당인가요, 전체 숙박인가요?", "🏨 예약"],
+    ["I'd like to file a complaint about the noise.", "소음에 대해 항의하고 싶습니다.", "📢 호텔"],
+    ["Could you move us to an adjacent room?", "옆방으로 옮겨 주실 수 있을까요?", "🏨 호텔"],
+    ["Does the hotel provide a shuttle service?", "호텔에서 셔틀을 운행하나요?", "🚐 호텔"],
+    ["Could you recommend a local specialty?", "이 지역 대표 요리를 추천해 주시겠어요?", "🍽️ 식당"],
+    ["I have a dietary restriction; no dairy, please.", "식단 제한이 있어요. 유제품은 빼 주세요.", "🥛 식당"],
+    ["Could I substitute the salad for the soup?", "샐러드를 수프로 바꿀 수 있을까요?", "🥗 주문"],
+    ["Is the service charge already included?", "봉사료가 이미 포함돼 있나요?", "🧾 계산"],
+    ["I'm afraid this dish is undercooked.", "이 음식이 덜 익은 것 같아요.", "🍳 식당 문제"],
+    ["Could you put us on the waiting list?", "대기 명단에 올려 주시겠어요?", "🍽️ 식당"],
+    ["Which pass is the most economical for three days?", "3일간은 어떤 패스가 가장 경제적인가요?", "🎫 교통"],
+    ["Do I need to validate this ticket before boarding?", "탑승 전에 이 표를 개찰해야 하나요?", "🎫 교통"],
+    ["Is the express train worth the extra fare?", "급행이 추가 요금만큼 값어치가 있나요?", "🚄 교통"],
+    ["The road seems to be under construction.", "길이 공사 중인 것 같아요.", "🚧 교통"],
+    ["Could you drop me off near the landmark?", "그 랜드마크 근처에 내려 주시겠어요?", "🚕 택시"],
+    ["Is this attraction accessible for elderly visitors?", "이 명소가 어르신도 다니기 편한가요?", "♿ 관광"],
+    ["Could I have an itemized bill, please?", "항목별 계산서를 받을 수 있을까요?", "🧾 계산"],
+    ["Am I eligible for a tax refund on this?", "이거 세금 환급 자격이 되나요?", "💱 면세"],
+    ["Could you confirm this is authentic?", "이게 진품인지 확인해 주시겠어요?", "🛍️ 쇼핑"],
+    ["Is the warranty valid in Korea as well?", "품질 보증이 한국에서도 유효한가요?", "🛍️ 쇼핑"],
+    ["What is the commission fee for this exchange?", "이 환전의 수수료가 얼마인가요?", "💱 은행"],
+    ["I would like to withdraw cash from this ATM.", "이 현금인출기에서 현금을 뽑고 싶어요.", "🏧 은행"],
+    ["I take medication for a chronic condition.", "만성 질환으로 약을 복용하고 있어요.", "💊 병원"],
+    ["Are there any side effects I should know about?", "제가 알아야 할 부작용이 있나요?", "💊 약국"],
+    ["I think I'm suffering from altitude sickness.", "고산병인 것 같아요.", "⛰️ 건강"],
+    ["Could you issue a medical certificate for my insurance?", "보험용 진단서를 발급해 주시겠어요?", "🏥 보험"],
+    ["I need to contact the Korean consulate.", "한국 영사관에 연락해야 해요.", "🏛️ 긴급"],
+    ["Where do I file a report for theft?", "절도 신고는 어디서 하나요?", "🚨 긴급"],
+  ]);
+}
+
+/* ================================================================
    [S5] 포켓몬 데이터 — 1~3세대 386마리 (index = 도감번호 - 1)
 ================================================================ */
 const TOTAL_POKEMON = 386;
@@ -2025,11 +2380,12 @@ const Storage = {
       eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
       chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
-      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0 }, bestCombo: 0, caught: 0 },
+      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0 }, bestCombo: 0, caught: 0 },
       settings: { sfx: true, tts: true },
-      mode: "kid",     // "kid" 아이 모드 | "parent" 부모 모드 — 코인·볼·도감은 공유
+      mode: "kid",     // "kid" 아이 | "parent" 부모 | "granny" 할머니(해외여행) — 코인·볼·도감은 공유
       course: "toefl", // 부모 모드 코스: "toefl" | "ielts" (기기별 설정)
       ieltsLevel: 2,   // IELTS 레벨 1·2·3 (기본 2)
+      grannyLevel: 1,  // 할머니 모드 레벨 1(초6)·2(중)·3(고) — 기본 1
       partner: null,   // 모험에 데려가는 파트너 포켓몬 id
       partnerHp: {},   // { id: { hp: 0~100, t: 마지막 기술 사용 시각 } } — 24시간 후 전체 회복
       wordStats: {},   // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
@@ -2172,14 +2528,15 @@ const TTS = {
       vs.find(v => v.lang && v.lang.startsWith("en")) || null;
     if (!this.voice) this.ok = false;
   },
-  speak(text, rate = 0.85) {
+  speak(text, rate) {
     if (!this.ok || !SAVE.settings.tts) return false;
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (this.voice) u.voice = this.voice;
-      u.rate = rate; u.pitch = 1.05;
+      u.rate = rate || speakRate(); // 할머니 모드는 더 천천히
+      u.pitch = 1.05;
       speechSynthesis.speak(u);
       return true;
     } catch (e) { return false; }
@@ -2313,6 +2670,7 @@ function showScreen(name, params) {
   SFX.bgmStop();
   Cry.stop();
   currentScreen = name;
+  document.body.classList.toggle("granny", SAVE.mode === "granny"); // 큰 글자·큰 버튼
   $("#app").innerHTML = "";
   const sec = document.createElement("section");
   sec.className = "screen";
@@ -2321,6 +2679,11 @@ function showScreen(name, params) {
   Screens[name](sec, params || {});
   window.scrollTo(0, 0);
 }
+
+// 모드 3단 순환: 아이 → 부모 → 할머니 → 아이
+const MODE_ORDER = ["kid", "parent", "granny"];
+const MODE_LABEL = { kid: "👶 아이", parent: "🧑 부모", granny: "👵 할머니" };
+const GRANNY_LV_LABEL = { 1: "초등 6학년", 2: "중학생", 3: "고등학생" };
 
 // 상단 공통 바 (코인 / 볼 요약 / 홈 버튼)
 function topbarHtml(opts) {
@@ -2332,7 +2695,7 @@ function topbarHtml(opts) {
     '<span class="chip">' + ballIcon("poke", 20) + " " + ballTotal + "<small>개</small></span>" +
     '<span class="spacer"></span>' +
     (o.modeToggle
-      ? '<button class="chip mode-chip" data-act="toggle-mode">' + (isKidMode() ? "👶 아이" : "🧑 부모") + "</button>"
+      ? '<button class="chip mode-chip" data-act="toggle-mode">' + MODE_LABEL[SAVE.mode || "kid"] + "</button>"
       : "") +
     '<button class="icon-btn' + (SAVE.settings.sfx ? "" : " off") + '" data-act="toggle-sfx" aria-label="효과음">🔔</button>' +
     '<button class="icon-btn' + (SAVE.settings.tts ? "" : " off") + '" data-act="toggle-tts" aria-label="발음">🗣️</button>' +
@@ -2479,8 +2842,10 @@ Screens.home = (el) => {
     '<h1 class="home-title">잉글리시<span class="mon">몬</span> ⚡</h1>' +
     '<p class="home-sub">' + (isKidMode()
       ? "영어 단어를 맞추고 포켓몬을 모아보자!"
-      : "🧑 부모 모드 — " + (SAVE.course === "ielts" ? "IELTS Lv" + SAVE.ieltsLevel : "TOEFL") + " 단어로 함께 도감을 채워요!") + "</p>" +
-    (!isKidMode()
+      : isGranny()
+        ? "👵 할머니 모드 — 해외여행 영어 (Lv" + lvOf(SAVE.grannyLevel, 1) + " " + GRANNY_LV_LABEL[lvOf(SAVE.grannyLevel, 1)] + " 수준)"
+        : "🧑 부모 모드 — " + (SAVE.course === "ielts" ? "IELTS Lv" + SAVE.ieltsLevel : "TOEFL") + " 단어로 함께 도감을 채워요!") + "</p>" +
+    (SAVE.mode === "parent"
       ? '<div class="course-bar">' +
         '<button class="course-btn' + (SAVE.course !== "ielts" ? " on" : "") + '" data-act="set-course" data-course="toefl">TOEFL</button>' +
         '<button class="course-btn' + (SAVE.course === "ielts" ? " on" : "") + '" data-act="set-course" data-course="ielts">IELTS</button>' +
@@ -2490,6 +2855,11 @@ Screens.home = (el) => {
             ).join("")
           : "") +
         "</div>"
+      : "") +
+    (isGranny()
+      ? '<div class="course-bar">✈️ ' + [1, 2, 3].map(l =>
+          '<button class="course-btn lv' + (lvOf(SAVE.grannyLevel, 1) === l ? " on" : "") + '" data-act="set-granny-level" data-lv="' + l + '">Lv' + l + "</button>"
+        ).join("") + "</div>"
       : "") +
     '<div class="home-hero"><button class="hero-ball" data-act="go-chat" aria-label="가족 톡">' +
       ballIcon("poke", 88) +
@@ -2504,6 +2874,12 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffeede">🚂</span>' +
         '<span><div class="mt">영어 끝말잇기</div><div class="md">마지막 글자로 단어 기차 만들기 · 🪙 벌기</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      (isGranny()
+        ? '<button class="mode-btn" data-act="go-travel">' +
+          '<span class="mi" style="background:#e6f7ff">✈️</span>' +
+          '<span><div class="mt">여행 회화</div><div class="md">듣고 뜻 고르기 · 상황별 문장 만들기 · 🪙 벌기</div></span>' +
+          '<span class="arrow">▶</span></button>'
+        : "") +
       '<button class="mode-btn" data-act="go-puzzle">' +
         '<span class="mi" style="background:#eef2ff">🧩</span>' +
         '<span><div class="mt">전기 회로 퍼즐</div><div class="md">같은 색을 이어 회로 완성 · 빠르면 🪙 더!</div></span>' +
@@ -2629,15 +3005,25 @@ document.addEventListener("click", (e) => {
     case "go-adventure": SFX.tap(); Adventure.go(); break;
     case "player-flee": Adventure.playerFlee(); break;
     case "mode-locked": SFX.tap(); toast("🔒 아직 준비 중이에요! 조금만 기다려 주세요", 1800); break;
-    case "toggle-mode":
-      SAVE.mode = isKidMode() ? "parent" : "kid";
+    case "toggle-mode": {
+      const cur = MODE_ORDER.indexOf(SAVE.mode || "kid");
+      SAVE.mode = MODE_ORDER[(cur + 1) % MODE_ORDER.length];
       saveNow();
       SFX.buy();
       showScreen("home");
-      toast(isKidMode()
-        ? "👶 아이 모드! 초등 영어 단어로 출제돼요"
-        : "🧑 부모 모드! TOEFL 단어로 출제돼요 (코인·도감은 함께 모아요)", 2600);
+      toast(SAVE.mode === "kid" ? "👶 아이 모드! 초등 영어 단어로 출제돼요"
+        : SAVE.mode === "parent" ? "🧑 부모 모드! " + (SAVE.course === "ielts" ? "IELTS" : "TOEFL") + " 단어로 출제돼요"
+        : "👵 할머니 모드! 해외여행 영어 — 여행 회화도 할 수 있어요 ✈️", 2800);
       break;
+    }
+    case "set-granny-level": {
+      SFX.tap();
+      SAVE.grannyLevel = Number(btn.dataset.lv);
+      saveNow();
+      showScreen("home");
+      toast("여행 영어 Lv" + SAVE.grannyLevel + " (" + GRANNY_LV_LABEL[SAVE.grannyLevel] + " 수준)로 바꿨어요", 2200);
+      break;
+    }
     case "set-course": {
       SFX.tap();
       SAVE.course = btn.dataset.course;
@@ -2662,6 +3048,7 @@ document.addEventListener("click", (e) => {
       else showScreen("family");
       break;
     case "go-family": SFX.tap(); showScreen("family"); break;
+    case "go-travel": SFX.tap(); Travel.start(); break;
     case "go-puzzle": SFX.tap(); Puzzle.stage = 1; showScreen("puzzle"); break;
     case "puzzle-next": SFX.tap(); closeModal(); Puzzle.stage++; showScreen("puzzle"); break;
     case "family-create": {
@@ -2950,7 +3337,7 @@ const Quiz = {
       // 아이 모드: 첫 글자를 파란색으로 강조 — "아, t로 시작하는구나!" (부모 모드는 하드모드)
       choicesHtml = choices.map(c =>
         '<button class="choice" data-wid="' + c.id + '"><span class="en">' +
-        (isKidMode() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
+        (hintsOn() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
         "</span></button>"
       ).join("");
     } else if (this.qdir === "enko") {
@@ -3007,7 +3394,7 @@ const Quiz = {
       "</div>" +
       '<div class="choices list">' + choices.map(c =>
         '<button class="choice" data-wid="' + c.id + '"><span class="en">' +
-        (isKidMode() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
+        (hintsOn() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) +
         "</span></button>"
       ).join("") + "</div>";
     Session.lock = false;
@@ -3197,16 +3584,24 @@ const WORD_SETS = {
   parent: { words: WORDS_ADULT, categories: CATEGORIES_ADULT, startIndex: buildStartIndex(WORDS_ADULT) },
 };
 [1, 2, 3].forEach(lv => {
-  const words = WORDS_IELTS.filter(w => w.lv === lv);
-  WORD_SETS["ielts" + lv] = { words, categories: CATEGORIES_IELTS, startIndex: buildStartIndex(words) };
+  const iw = WORDS_IELTS.filter(w => w.lv === lv);
+  WORD_SETS["ielts" + lv] = { words: iw, categories: CATEGORIES_IELTS, startIndex: buildStartIndex(iw) };
+  const tw = WORDS_TRAVEL.filter(w => w.lv === lv);
+  WORD_SETS["travel" + lv] = { words: tw, categories: CATEGORIES_TRAVEL, startIndex: buildStartIndex(tw) };
 });
+const lvOf = (v, dflt) => ([1, 2, 3].includes(v) ? v : dflt);
 const activeSet = () => {
+  if (SAVE.mode === "granny") return WORD_SETS["travel" + lvOf(SAVE.grannyLevel, 1)];
   if (SAVE.mode !== "parent") return WORD_SETS.kid;
-  if (SAVE.course === "ielts") return WORD_SETS["ielts" + ([1, 2, 3].includes(SAVE.ieltsLevel) ? SAVE.ieltsLevel : 2)];
+  if (SAVE.course === "ielts") return WORD_SETS["ielts" + lvOf(SAVE.ieltsLevel, 2)];
   return WORD_SETS.parent;
 };
 const activeWords = () => activeSet().words;
-const isKidMode = () => SAVE.mode !== "parent";
+const isKidMode = () => SAVE.mode === "kid";       // 아이 전용 기능(문장 문제 등)
+const isGranny = () => SAVE.mode === "granny";     // 할머니(해외여행) 모드
+const hintsOn = () => SAVE.mode !== "parent";      // 힌트: 아이·할머니 O, 부모 X(하드모드)
+// 할머니 모드는 발음을 더 천천히
+const speakRate = () => (isGranny() ? 0.72 : 0.85);
 // 제시어로 쓸 수 있는 단어: 끝글자로 시작하는 다른 단어가 1개 이상
 const chainSafe = (w, idx) => ((idx || activeSet().startIndex)[lastLetter(w)] || []).some(c => c.id !== w.id);
 
@@ -3314,7 +3709,7 @@ const Chain = {
       this.wrongCount++;
       SFX.wrong();
       btn.classList.add("wrong");
-      if (this.wrongCount >= 2 && isKidMode()) {
+      if (this.wrongCount >= 2 && hintsOn()) {
         // 아이 모드 힌트: 남은 보기들의 영어 단어 공개 (첫 글자 강조) — 부모 모드는 힌트 없음
         document.querySelectorAll("#chain-box .choice:not(.wrong)").forEach(el => {
           if (el.querySelector(".en-hint")) return;
@@ -3489,6 +3884,165 @@ const Memory = {
 };
 
 Screens.memory = (el) => Memory.render(el);
+
+/* ================================================================
+   [S15.4] 여행 회화 모드 (할머니 모드 전용) — 듣기·상황·문장 배열 3유형
+================================================================ */
+const Travel = {
+  list: [], phrase: null, qtype: "listen", hadWrong: false, arrIdx: 0,
+
+  pool() { return PHRASES_TRAVEL.filter(p => p.lv === lvOf(SAVE.grannyLevel, 1)); },
+
+  start() {
+    const pool = this.pool();
+    Session.reset("travel", Math.min(8, pool.length));
+    SAVE.stats.gamesPlayed.travel = (SAVE.stats.gamesPlayed.travel || 0) + 1;
+    saveNow();
+    lastGame = { restart: () => Travel.start() };
+    // 전에 틀린 문장 최대 2개를 반드시 포함 (복습)
+    const weak = pickN(pool.filter(p => isWeakWord(p.id)), 2);
+    const rest = shuffle(pool.filter(p => !weak.includes(p)));
+    this.list = shuffle(weak.concat(rest)).slice(0, Session.total);
+    showScreen("travel");
+  },
+
+  question() {
+    this.phrase = this.list[Session.round];
+    if (!this.phrase) { Result.show(); return; } // 방어: 목록이 비었으면 결과로
+    this.hadWrong = false;
+    Session.round++;
+    setProgress();
+    const listenOk = TTS.ok && SAVE.settings.tts;
+    const types = listenOk ? ["listen", "situation", "arrange"] : ["situation", "arrange"];
+    this.qtype = types[Math.floor(Math.random() * types.length)];
+    if (this.qtype === "arrange") this.renderArrange();
+    else this.renderChoice();
+  },
+
+  distractors(n) {
+    const pool = this.pool().filter(p => p.id !== this.phrase.id);
+    return pickN(pool, n);
+  },
+
+  renderChoice() {
+    const p = this.phrase;
+    const listen = this.qtype === "listen";
+    const choices = shuffle([p, ...this.distractors(2)]);
+    $("#travel-box").innerHTML =
+      '<div class="prompt-card">' +
+        (listen
+          ? '<button class="speak-btn" id="tv-speak">🔊</button>' +
+            '<div class="prompt-hint" style="margin-top:10px">잘 듣고 무슨 뜻인지 골라요! (🔊 다시 듣기)</div>'
+          : '<div class="tv-sit">' + esc(p.sit) + "</div>" +
+            '<div class="tv-ko">' + esc(p.ko) + "</div>" +
+            '<div class="prompt-hint">이 말을 영어로 하면?</div>') +
+      "</div>" +
+      '<div class="choices list">' + choices.map(c =>
+        '<button class="choice tv-choice" data-pid="' + c.id + '">' +
+        (listen
+          ? '<span class="ko" style="font-size:17px">' + esc(c.ko) + "</span>"
+          : '<span class="tv-en">' + esc(c.en) + "</span>") +
+        "</button>"
+      ).join("") + "</div>";
+    Session.lock = false;
+    if (listen) {
+      const sp = $("#tv-speak");
+      sp.addEventListener("click", () => { SFX.tap(); TTS.speak(p.en); });
+      later(() => TTS.speak(p.en), 350);
+    }
+    document.querySelectorAll("#travel-box .tv-choice").forEach(b =>
+      b.addEventListener("click", e => this.answer(e, b)));
+  },
+
+  renderArrange() {
+    const p = this.phrase;
+    this.arrIdx = 0;
+    this.tokens = p.en.replace(/[.,?!]/g, "").split(" ").filter(Boolean);
+    $("#travel-box").innerHTML =
+      '<div class="prompt-card">' +
+        '<div class="tv-sit">' + esc(p.sit) + "</div>" +
+        '<div class="tv-ko">' + esc(p.ko) + "</div>" +
+        '<div class="prompt-hint">단어를 순서대로 눌러 영어 문장을 만들어요!</div>' +
+      "</div>" +
+      '<div class="spell-slots sent-slots">' + this.tokens.map(() => '<div class="spell-slot word-slot"></div>').join("") + "</div>" +
+      '<div class="spell-tiles">' + shuffle(this.tokens.slice()).map(t =>
+        '<button class="spell-tile word-tile" data-tok="' + esc(t) + '">' + esc(t) + "</button>"
+      ).join("") + "</div>";
+    Session.lock = false;
+    document.querySelectorAll("#travel-box .word-tile").forEach(b =>
+      b.addEventListener("click", e => this.arrTap(e, b)));
+  },
+
+  arrTap(e, btn) {
+    if (Session.lock || btn.classList.contains("used")) return;
+    if (btn.dataset.tok !== this.tokens[this.arrIdx]) {
+      this.miss();
+      SFX.wrong();
+      btn.classList.add("wrong");
+      later(() => btn.classList.remove("wrong"), 420);
+      return;
+    }
+    SFX.click();
+    btn.classList.add("used");
+    const slot = document.querySelectorAll("#travel-box .word-slot")[this.arrIdx];
+    if (slot) { slot.textContent = btn.dataset.tok; slot.classList.add("filled"); }
+    this.arrIdx++;
+    if (this.arrIdx >= this.tokens.length) this.succeed(e);
+  },
+
+  miss() {
+    if (this.hadWrong) return;
+    this.hadWrong = true;
+    SAVE.stats.totalAnswered++;
+    noteWordResult(this.phrase.id, false); // 문장 id로 복습 기록 (4001~ 대역)
+    breakCombo();
+  },
+
+  answer(e, btn) {
+    if (Session.lock) return;
+    if (Number(btn.dataset.pid) !== this.phrase.id) {
+      this.miss();
+      SFX.wrong();
+      btn.classList.add("wrong");
+      return;
+    }
+    btn.classList.add("right");
+    this.succeed(e);
+  },
+
+  succeed(e) {
+    Session.lock = true;
+    if (!this.hadWrong) {
+      SAVE.stats.totalAnswered++;
+      noteWordResult(this.phrase.id, true);
+      awardFirstTry(e ? e.clientX : undefined, e ? e.clientY : undefined);
+    } else {
+      SFX.correct();
+    }
+    const p = this.phrase;
+    TTS.speak(p.en);
+    later(() => {
+      const banner = document.createElement("div");
+      banner.className = "answer-banner";
+      banner.innerHTML = '<div class="bn" style="font-size:21px">' + esc(p.en) + '</div>' +
+        '<div class="bk" style="font-size:15px">' + esc(p.ko) + "</div>" +
+        '<div class="bk" style="margin-top:4px">' + esc(p.sit) + "</div>";
+      document.body.appendChild(banner);
+      later(() => {
+        banner.remove();
+        if (Session.round >= Session.total) Result.show();
+        else this.question();
+      }, 2100);
+    }, 450);
+  },
+};
+
+Screens.travel = (el) => {
+  // 세션 없이 화면만 열린 경우(직접 진입·복구) 새 판을 시작
+  if (Session.mode !== "travel" || !Travel.list.length) { Travel.start(); return; }
+  el.innerHTML = gameHeadHtml() + '<div id="travel-box"></div>';
+  Travel.question();
+};
 
 /* ================================================================
    [S15.5] 퍼즐 모드 — 전기 회로 잇기 (같은 색 단자 연결 + 모든 칸 채우기)
@@ -4443,7 +4997,8 @@ Screens.pokedex = (el) => {
    - 코인·볼은 기기별 누적 카운터 합산이라 동시에 놀아도 안 꼬임
    - 로컬 저장이 항상 우선: 인터넷이 끊겨도 게임은 정상, 연결되면 자동 병합
 ================================================================ */
-function chatRole() { return SAVE.mode === "parent" ? "parent" : "kid"; }
+function chatRole() { return SAVE.mode === "parent" ? "parent" : SAVE.mode === "granny" ? "granny" : "kid"; }
+const CHAT_WHO = { parent: "🧑 부모", granny: "👵 할머니", kid: "👶 아이" };
 
 const Family = {
   LKEY: "engmon_family_v1",
@@ -4539,6 +5094,7 @@ const Family = {
         chain: mx(sa.gamesPlayed && sa.gamesPlayed.chain, sb.gamesPlayed && sb.gamesPlayed.chain),
         memory: mx(sa.gamesPlayed && sa.gamesPlayed.memory, sb.gamesPlayed && sb.gamesPlayed.memory),
         puzzle: mx(sa.gamesPlayed && sa.gamesPlayed.puzzle, sb.gamesPlayed && sb.gamesPlayed.puzzle),
+        travel: mx(sa.gamesPlayed && sa.gamesPlayed.travel, sb.gamesPlayed && sb.gamesPlayed.travel),
       },
     };
     m.partnerHp = {};
@@ -4715,7 +5271,7 @@ function chatMsgsHtml() {
   }
   return SAVE.chat.map(m => {
     const mine = m.f === my;
-    const who = m.f === "parent" ? "🧑 부모" : "👶 아이";
+    const who = CHAT_WHO[m.f] || "👶 아이";
     const d = new Date(m.t);
     const time = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
     return '<div class="bubble ' + (mine ? "me" : "them") + '">' + esc(m.x) +
@@ -4742,7 +5298,7 @@ function sendChat(text) {
 Screens.chat = (el) => {
   el.innerHTML =
     topbarHtml({ home: true }) +
-    '<div class="page-title">💬 가족 톡 <span class="prompt-hint" style="margin-left:6px">(' + (chatRole() === "parent" ? "🧑 부모" : "👶 아이") + ' 로 보내는 중)</span>' +
+    '<div class="page-title">💬 가족 톡 <span class="prompt-hint" style="margin-left:6px">(' + CHAT_WHO[chatRole()] + ' 로 보내는 중)</span>' +
       '<button class="icon-btn" data-act="go-family" style="margin-left:auto" aria-label="가족 설정">⚙️</button></div>' +
     '<div class="chat-list" id="chat-list"></div>' +
     '<div class="chat-stamps">' + CHAT_STAMPS.map(s => '<button class="stamp" data-stamp="' + esc(s) + '">' + esc(s) + "</button>").join("") + "</div>" +
@@ -4790,6 +5346,27 @@ Screens.chat = (el) => {
   });
   console.assert(WORDS_ADULT.length === 500, "[parent] 단어 수 오류:", WORDS_ADULT.length);
   console.assert(WORDS_ADULT.every(w => w.id >= 1001), "[parent] id 범위 오류");
+  console.assert(WORDS_TRAVEL.length === 450, "[travel] 단어 수 오류:", WORDS_TRAVEL.length);
+  const tseen = new Set(), tdups = [];
+  WORDS_TRAVEL.forEach(w => { if (tseen.has(w.en)) tdups.push(w.en); tseen.add(w.en); });
+  console.assert(tdups.length === 0, "[travel] 레벨 간 중복 단어:", tdups);
+  console.assert(WORDS_TRAVEL.every(w => w.id >= 3001 && [1, 2, 3].includes(w.lv)), "[travel] id/레벨 오류");
+  console.assert(PHRASES_TRAVEL.length === 120, "[phrase] 문장 수 오류:", PHRASES_TRAVEL.length);
+  const pseen = new Set(), pdups = [], plong = [];
+  PHRASES_TRAVEL.forEach(p => {
+    if (pseen.has(p.en)) pdups.push(p.en);
+    pseen.add(p.en);
+    const n = p.en.replace(/[.,?!]/g, "").split(" ").filter(Boolean).length;
+    if (n > 12) plong.push(p.en + "(" + n + ")");
+  });
+  console.assert(pdups.length === 0, "[phrase] 중복 문장:", pdups);
+  console.assert(plong.length === 0, "[phrase] 12토큰 초과(타일 배열 불가):", plong);
+  [1, 2, 3].forEach(lv => {
+    const n = PHRASES_TRAVEL.filter(p => p.lv === lv).length;
+    console.assert(n >= 3, "[phrase] Lv" + lv + " 문장 부족:", n);
+  });
+  console.log("[여행] 단어 " + WORDS_TRAVEL.length + "개 / 회화 " + PHRASES_TRAVEL.length + "문장 (레벨별 " +
+    [1, 2, 3].map(lv => WORDS_TRAVEL.filter(w => w.lv === lv).length + "·" + PHRASES_TRAVEL.filter(p => p.lv === lv).length).join(" / ") + ")");
   console.assert(WORDS_IELTS.length === 450, "[ielts] 단어 수 오류:", WORDS_IELTS.length);
   const iseen = new Set();
   const idups = [];
