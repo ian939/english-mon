@@ -886,12 +886,13 @@ const CONFIG = {
   comboBonus: 2,         //   보너스 코인 +2
   perfectBonus: 3,       // 짝맞추기 퍼펙트 보너스 코인
   memoryPerfectSlack: 3, // 퍼펙트 판정: 실패 뒤집기 <= 쌍수+3 - 쌍수 = 3회 여유
-  spellChance: 0.5,      // 정답 후 스펠링 보너스 찬스 발동 확률
+  spellChance: 0.2,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
   // 로켓단 조우 — 모험 출발 시 15% 확률, 7판 동안 안 나오면 다음 판 확정
-  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 6, perfectBall: "hyper" },
+  // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
+  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -3576,7 +3577,10 @@ function toast(msg, ms = 2200) {
 }
 
 function showModal(html) { $("#modal-box").innerHTML = html; $("#modal-wrap").classList.remove("hidden"); }
-function closeModal() { $("#modal-wrap").classList.add("hidden"); }
+function closeModal() {
+  $("#modal-wrap").classList.add("hidden");
+  $("#modal-box").innerHTML = ""; // 내용까지 비워 잔여 DOM이 남지 않게
+}
 
 // 떠오르는 텍스트 이펙트 (+1 🪙, 볼 아이콘 등 — 내부 고정 문자열만 전달)
 function fxFloat(html, x, y) {
@@ -4892,12 +4896,19 @@ const Rocket = {
     return Math.random() < CONFIG.rocket.chance;
   },
 
+  // 훔쳐온 포켓몬 후보: 해금 지역의 **도감에 없는** 포켓몬만 (레어~유니크 우선)
+  stolenPool() {
+    const own = id => SAVE.pokedex[id] && SAVE.pokedex[id].count >= 1;
+    const rare = rarityPoolInRange("unique").concat(rarityPoolInRange("rare")).filter(id => !own(id));
+    if (rare.length) return rare;
+    const common = rarityPoolInRange("common").filter(id => !own(id));
+    if (common.length) return common;
+    return []; // 이 지역을 다 모았으면 로켓단은 나오지 않음
+  },
+
   start() {
-    // 훔쳐온 포켓몬: 해금 지역 안의 레어~유니크 (전설은 제외)
-    let pool = rarityPoolInRange("unique").concat(rarityPoolInRange("rare"));
-    if (!pool.length) pool = rarityPoolInRange("common");
-    const unowned = pool.filter(id => !SAVE.pokedex[id]);
-    if (unowned.length && Math.random() < 0.6) pool = unowned;
+    const pool = this.stolenPool();
+    if (!pool.length) { Adventure.encounterWild(); return; } // 다 모은 지역이면 야생 조우로
     const id = pool[Math.floor(Math.random() * pool.length)];
     this.mon = { id, name: POKEMON_KO[id - 1], rarity: rarityOf(id) };
     this.round = 0;
@@ -4965,17 +4976,22 @@ const Rocket = {
       $("#rk-hp-wrap").classList.remove("hidden");
       const hp = $("#rk-hp");
       if (hp) hp.style.width = "100%";
-      typeText($("#battle-dialog"), "😈 로켓단이 나타났다!");
+      typeText($("#battle-dialog"), "귀염둥이 악당, 포켓몬의 감초~!");
       SFX.wrong();
     }, 1200);
+    later(() => {
+      typeText($("#battle-dialog"), "우리는 로켓단이다옹~! 😈");
+      SFX.tone(520, 0.12, "triangle", 0, 0.12);
+      SFX.tone(660, 0.16, "triangle", 0.12, 0.12);
+    }, 3000);
     later(() => {
       $("#rk-mon").classList.remove("hidden");
       const ally = $("#adv-ally");
       if (ally) ally.classList.remove("hidden");
       typeText($("#battle-dialog"), "가둬둔 " + josa(m.name, "을를") + " 보여준다… 구해 줘!");
       SFX.bgmStart();
-    }, 2600);
-    later(() => this.nextRound(), 4000);
+    }, 4700);
+    later(() => this.nextRound(), 6200);
   },
 
   nextRound() {
@@ -5161,7 +5177,7 @@ const Rocket = {
       SAVE.stats.caught++;
       SAVE.stats.rocketWins = (SAVE.stats.rocketWins || 0) + 1;
       if (!SAVE.partner) SAVE.partner = m.id;
-      addCoins(CONFIG.rocket.coin, window.innerWidth / 2, window.innerHeight * 0.35);
+      if (CONFIG.rocket.coin > 0) addCoins(CONFIG.rocket.coin, window.innerWidth / 2, window.innerHeight * 0.35);
       let ballLine = "";
       if (perfect) {
         const bk = CONFIG.rocket.perfectBall;
@@ -5183,7 +5199,7 @@ const Rocket = {
         '<div class="m-text">' +
           (isNew ? "🎊 <b>새로운 포켓몬!</b> 도감에 등록했어요!<br>" : "또 만났네! ⭐×" + entry.count + "<br>") +
           "몬스터볼을 쓰지 않고 구했어요!" + ballLine + "<br>도감: <b>" + total + " / " + TOTAL_POKEMON + "</b></div>" +
-        '<div class="coin-earn">🪙 +' + CONFIG.rocket.coin + "</div>" +
+        (CONFIG.rocket.coin > 0 ? '<div class="coin-earn">🪙 +' + CONFIG.rocket.coin + "</div>" : "") +
         '<div class="m-btns" style="flex-direction:column;margin-top:12px">' +
           (Adventure.ballTotal() > 0 ? '<button class="btn red" data-act="modal-adventure">🌿 모험 계속하기</button>' : "") +
           '<button class="btn purple" data-act="modal-dex">📕 도감 보기</button>' +
@@ -5271,11 +5287,9 @@ const EscapeQuiz = {
 
   render() {
     showModal(
-      '<div class="m-emoji">🏃💨</div>' +
-      '<div class="m-title">도망가려면 문장 만들기!</div>' +
       '<div class="esc-ko">' + esc(this.phrase.ko) + "</div>" +
-      '<button class="speak-btn small esc-speak" data-act="escape-listen" style="position:static;margin:6px auto 2px;display:block">🔊</button>' +
-      '<div class="m-text" style="margin:4px 0 10px">소리를 듣고 단어를 순서대로 눌러요<br>(틀려도 다시 할 수 있어요!)</div>' +
+      '<button class="speak-btn small esc-speak" data-act="escape-listen" style="position:static;margin:8px auto 2px;display:block">🔊</button>' +
+      '<div class="m-text" style="margin:4px 0 10px">소리를 듣고 단어를 순서대로 눌러요</div>' +
       '<div class="spell-slots sent-slots" id="esc-slots">' +
         this.tokens.map((t, i) => '<div class="spell-slot word-slot' + (i < this.idx ? " filled" : "") + '">' +
           (i < this.idx ? esc(this.tokens[i]) : "") + "</div>").join("") +
@@ -5865,8 +5879,12 @@ const Adventure = {
   encounter() {
     // 로켓단 조우 (15% + 7판 pity) — 야생 포켓몬 대신 등장
     SAVE.rocketSince = (SAVE.rocketSince || 0) + 1;
-    if (Rocket.shouldAppear()) { Rocket.start(); return; }
+    if (Rocket.shouldAppear() && Rocket.stolenPool().length) { Rocket.start(); return; }
     saveNow();
+    this.encounterWild();
+  },
+
+  encounterWild() {
     let rarity = this.rollRarity();
     // 해금된 탐험 지역(세대) 안에서만 출현
     let pool = rarityPoolInRange(rarity);
@@ -6047,21 +6065,21 @@ const Adventure = {
     if (img) img.classList.add("fleeing");
     typeText($("#battle-dialog"), "무사히 도망쳤다!");
     later(() => {
-      const ballsLeft = this.ballTotal();
+      // 팝업 없이 바로 다음 포켓몬 (볼이 없으면 상점/퀴즈로 안내)
+      if (this.ballTotal() > 0) { this.encounter(); return; }
+      const ballsLeft = 0;
       showModal(
         '<div class="m-emoji">🏃💨</div>' +
         '<div class="m-title">무사히 도망쳤다!</div>' +
-        '<div class="m-text">' + esc(josa(this.mon.name, "이가")) + " 풀숲으로 사라졌어요.<br>다음 포켓몬을 찾아보자!</div>" +
+        '<div class="m-text">볼이 다 떨어졌어요.<br>코인을 모아 볼을 사고 다시 모험을 떠나요!</div>' +
         '<div class="m-btns" style="flex-direction:column">' +
-          (ballsLeft > 0
-            ? '<button class="btn red" data-act="modal-adventure">🌿 다음 포켓몬 찾기 (' + ballsLeft + "개)</button>"
-            : (SAVE.coins >= CONFIG.balls.poke.price
-              ? '<button class="btn yellow" data-act="modal-shop">🛍️ 상점 가기</button>'
-              : '<button class="btn" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>')) +
+          (SAVE.coins >= CONFIG.balls.poke.price
+            ? '<button class="btn yellow" data-act="modal-shop">🛍️ 상점 가기</button>'
+            : '<button class="btn" data-act="modal-quiz">📖 퀴즈로 코인 모으기</button>') +
           '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
         "</div>"
       );
-    }, 650);
+    }, 950); // 도망 애니메이션을 보여준 뒤 바로 다음 포켓몬
   },
 
   // 파트너 고유 기술 연출: 런지 → 타입 발사체 → 명중(흔들림+💥) → HP 감소
