@@ -890,9 +890,9 @@ const CONFIG = {
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
-  // 로켓단 조우 — 모험 출발 시 15% 확률, 7판 동안 안 나오면 다음 판 확정
+  // 로켓단 조우 — 모험 출발 시 10% 확률, 7판 동안 안 나오면 다음 판 확정
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
-  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
+  rocket: { chance: 0.10, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
