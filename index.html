@@ -685,11 +685,21 @@ body.shake #app { animation: screenShake .85s cubic-bezier(.36,.07,.19,.97) both
 }
 .rk-heli.leaving { animation: heliUp 1.1s ease-in forwards; }
 @keyframes heliUp { to { top: -90px; opacity: 0; transform: rotate(12deg); } }
+/* 로켓단은 오른쪽(상대 진영) 아래 — 좌하단 파트너와 겹치지 않게 */
 .rk-boss {
-  position: absolute; left: 8%; top: 34%; z-index: 3; text-align: center;
+  position: absolute; right: 4%; bottom: 58px; z-index: 3; text-align: center;
   animation: monIn .45s cubic-bezier(.2,1.4,.4,1) both;
 }
 .rk-boss .face { font-size: clamp(52px, 15vw, 74px); line-height: 1; animation: idleBob 2s ease-in-out infinite; }
+/* 로켓단 3인방 도트 그림 (이미지가 없으면 이모지로 자동 대체) */
+.rk-crew { display: flex; align-items: flex-end; gap: 2px; animation: idleBob 2.4s ease-in-out infinite; }
+.rk-crew img {
+  height: clamp(62px, 17vw, 88px); width: auto; image-rendering: pixelated;
+  filter: drop-shadow(0 6px 7px rgba(0,0,0,.45));
+}
+.rk-crew img.pet { height: clamp(44px, 12vw, 60px); }
+.rk-crew.hit { animation: hitShake .5s ease; }
+.rk-crew.fleeing { animation: fleeRun .7s ease-in forwards; }
 .rk-boss .tag {
   display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 900; color: #fff;
   background: linear-gradient(90deg, #d7263d, #8b1e3f); border-radius: 999px; padding: 3px 11px;
@@ -2200,6 +2210,17 @@ function advImgFail(img) {
     holder.insertAdjacentHTML("afterbegin", '<div class="fallback">❔</div>');
   }
 }
+// 로켓단 도트 그림 로드 실패 → 그 그림만 제거하고, 전부 실패하면 이모지로 대체
+function rocketImgFail(img) {
+  const crew = img.parentElement;
+  img.remove();
+  if (crew && !crew.querySelector("img")) {
+    crew.classList.add("hidden");
+    const face = $("#rk-face");
+    if (face) face.classList.remove("hidden");
+  }
+}
+
 // 파트너(뒷모습): 움직이는 GIF → 도트 뒷모습 → 공식 일러스트 → 숨김
 function allyImgFail(img) {
   const step = img.dataset.step || "gif";
@@ -4849,6 +4870,21 @@ const Rocket = {
   mon: null, round: 0, mistakes: 0, qtype: "word",
   word: null, phrase: null, tokens: [], arrIdx: 0, hadWrong: false, busy: false,
 
+  // 표정 변화 — 도트 그림 모드에서는 이름표 이모지로, 이미지가 없으면 큰 이모지로
+  setFace(emoji, shake) {
+    const face = $("#rk-face");
+    if (face) face.textContent = emoji;
+    const tag = $("#rk-tag");
+    if (tag) tag.textContent = emoji + " 로켓단";
+    const crew = $("#rk-crew");
+    if (crew && shake) {
+      crew.classList.remove("hit");
+      void crew.offsetWidth;
+      crew.classList.add("hit");
+      later(() => crew.classList.remove("hit"), 600);
+    }
+  },
+
   // 이번 모험에서 로켓단이 나올지 판정 (확률 + pity)
   shouldAppear() {
     const since = SAVE.rocketSince || 0;
@@ -4891,7 +4927,14 @@ const Rocket = {
           '<div class="np-name">😈 로켓단</div>' +
           '<div class="hpwrap"><span class="hplabel">HP</span><div class="hpbar"><i id="rk-hp"></i></div></div>' +
         "</div>" +
-        '<div class="rk-boss hidden" id="rk-boss"><div class="face" id="rk-face">😈</div><div class="tag">로켓단</div></div>' +
+        '<div class="rk-boss hidden" id="rk-boss">' +
+          '<div class="rk-crew" id="rk-crew">' +
+            '<img src="img/rocket-jessie.png" alt="" onerror="rocketImgFail(this)">' +
+            '<img src="img/rocket-james.png" alt="" onerror="rocketImgFail(this)">' +
+            '<img class="pet" src="img/rocket-meowth.png" alt="" onerror="rocketImgFail(this)">' +
+          "</div>" +
+          '<div class="face hidden" id="rk-face">😈</div>' +
+          '<div class="tag" id="rk-tag">😈 로켓단</div></div>' +
         '<div class="adv-enemy rk-shadow hidden" id="rk-mon">' +
           '<img data-mid="' + m.id + '" src="' + gifUrl(m.id) + '" alt="" onerror="advImgFail(this)">' +
         "</div>" +
@@ -5017,8 +5060,8 @@ const Rocket = {
       saveNow();
     }
     SFX.wrong();
-    const face = $("#rk-face");
-    if (face) { face.textContent = "😏"; later(() => { if (face) face.textContent = "😈"; }, 900); }
+    this.setFace("😏");
+    later(() => this.setFace("😈"), 900);
     typeText($("#battle-dialog"), "😏 로켓단: 그렇게 쉽진 않다고!");
   },
 
@@ -5067,8 +5110,7 @@ const Rocket = {
     const after = () => {
       const hp = $("#rk-hp");
       if (hp) hp.style.width = hpPct + "%";
-      const face = $("#rk-face");
-      if (face) face.textContent = left > 0 ? "😰" : "😱";
+      this.setFace(left > 0 ? "😰" : "😱", true); // 피격 흔들림
       typeText($("#battle-dialog"), left > 0 ? "😰 로켓단: 윽! 제법이구나…" : "😱 로켓단: 이럴 수가!");
       later(() => this.nextRound(), 1500);
     };
@@ -5093,8 +5135,9 @@ const Rocket = {
     // 헬기 도망 + 그림자 정화
     const heli = $("#rk-heli");
     if (heli) heli.classList.add("leaving");
-    const face = $("#rk-face");
-    if (face) face.textContent = "😱";
+    this.setFace("😱");
+    const crew = $("#rk-crew");
+    if (crew) crew.classList.add("fleeing"); // 3인방이 도망간다
     typeText($("#battle-dialog"), "😱 로켓단: 다음엔 두고 보자~!");
     SFX.escape();
     later(() => {
@@ -5160,6 +5203,9 @@ const Rocket = {
     if (heli) heli.classList.add("leaving");
     const img = $("#rk-mon") && $("#rk-mon").querySelector("img, .fallback");
     if (img) img.classList.add("fleeing");
+    const crew = $("#rk-crew");
+    if (crew) crew.classList.add("fleeing");
+    this.setFace("😈");
     typeText($("#battle-dialog"), "😈 로켓단: 하하! 이 포켓몬은 내가 가져간다!");
     later(() => showModal(
       '<div class="m-emoji">😈🚁</div>' +
