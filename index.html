@@ -671,6 +671,51 @@ body.shake #app { animation: screenShake .85s cubic-bezier(.36,.07,.19,.97) both
 .ally-hp > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ec46f, #7be495); border-radius: 99px; transition: width .4s; }
 .ally-hp > i.low { background: linear-gradient(90deg, #ff8c42, #ffb703); }
 
+/* ===== 로켓단 조우 ===== */
+.rk-scene { background: linear-gradient(180deg, #241a3d 0%, #4a3168 58%, #3a2550 58%, #241a3d 100%) !important; }
+.rk-heli {
+  position: absolute; right: 6%; top: -70px;
+  font-size: 46px; z-index: 4; animation: heliDown 1.1s cubic-bezier(.3,1.2,.5,1) forwards;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,.45));
+}
+@keyframes heliDown {
+  0% { top: -70px; opacity: 0; }
+  55% { opacity: 1; }
+  100% { top: 6px; opacity: 1; }
+}
+.rk-heli.leaving { animation: heliUp 1.1s ease-in forwards; }
+@keyframes heliUp { to { top: -90px; opacity: 0; transform: rotate(12deg); } }
+.rk-boss {
+  position: absolute; left: 8%; top: 34%; z-index: 3; text-align: center;
+  animation: monIn .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.rk-boss .face { font-size: clamp(52px, 15vw, 74px); line-height: 1; animation: idleBob 2s ease-in-out infinite; }
+.rk-boss .tag {
+  display: inline-block; margin-top: 4px; font-size: 12.5px; font-weight: 900; color: #fff;
+  background: linear-gradient(90deg, #d7263d, #8b1e3f); border-radius: 999px; padding: 3px 11px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.rk-shadow img, .rk-shadow .fallback {
+  filter: brightness(.45) saturate(.35) drop-shadow(0 0 16px #9b5de5) !important;
+  transition: filter 1.1s ease;
+}
+.rk-shadow.purified img, .rk-shadow.purified .fallback {
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,.3)) !important;
+}
+#rk-alarm {
+  position: fixed; inset: 0; z-index: 87; pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, rgba(215,38,61,.55), transparent 70%);
+  animation: rkAlarm 1.1s ease-out 2;
+}
+@keyframes rkAlarm { 0%, 100% { opacity: 0; } 40% { opacity: 1; } }
+.rk-hpwrap { position: absolute; left: 10px; top: 10px; z-index: 5; min-width: 47%;
+  background: rgba(255,255,255,.94); border-radius: 14px; padding: 8px 12px 9px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.25); animation: plateIn .35s ease-out both; }
+.rk-hpwrap .np-name { color: #b3123a; }
+.rk-hpwrap .hpbar > i { background: linear-gradient(90deg, #d7263d, #ff7b8f); }
+.rk-round { text-align: center; font-size: 13.5px; font-weight: 900; color: var(--ink-soft); margin-bottom: 8px; }
+.rk-round b { color: #d7263d; }
+
 /* 도망 문장 퀴즈 */
 .esc-ko { font-size: 20px; font-weight: 900; color: var(--ink); margin: 4px 0 2px; }
 .esc-speak { width: 54px !important; height: 54px !important; font-size: 26px !important; }
@@ -835,6 +880,8 @@ const CONFIG = {
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
+  // 로켓단 조우 — 모험 출발 시 15% 확률, 7판 동안 안 나오면 다음 판 확정
+  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 6, perfectBall: "hyper" },
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -3269,13 +3316,14 @@ const Storage = {
       eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
       chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
-      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0 }, bestCombo: 0, caught: 0 },
+      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0 }, bestCombo: 0, caught: 0, rocketWins: 0 },
       settings: { sfx: true, tts: true },
       mode: "kid",     // "kid" 아이 | "parent" 부모 | "granny" 할머니(해외여행) — 코인·볼·도감은 공유
       course: "toefl", // 부모 모드 코스: "toefl" | "ielts" (기기별 설정)
       ieltsLevel: 2,   // IELTS 레벨 1·2·3 (기본 2)
       grannyLevel: 1,  // 할머니 모드 레벨 1(초6)·2(중)·3(고) — 기본 1
       dexGen: 1,       // 해금된 탐험 지역(세대) — 도감을 다 채우면 다음 세대가 열림
+      rocketSince: 0,  // 로켓단을 못 만난 조우 횟수 (7판 되면 확정 등장)
       partner: null,   // 모험에 데려가는 파트너 포켓몬 id
       partnerHp: {},   // { id: { hp: 0~100, t: 마지막 기술 사용 시각 } } — 24시간 후 전체 회복
       wordStats: {},   // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
@@ -3909,6 +3957,7 @@ document.addEventListener("click", (e) => {
     case "go-shop": SFX.tap(); showScreen("shop"); break;
     case "go-adventure": SFX.tap(); Adventure.go(); break;
     case "player-flee": Adventure.playerFlee(); break;
+    case "rocket-giveup": SFX.tap(); Rocket.giveUp(); break;
     case "mode-locked": SFX.tap(); toast("🔒 아직 준비 중이에요! 조금만 기다려 주세요", 1800); break;
     case "toggle-mode": {
       const cur = MODE_ORDER.indexOf(SAVE.mode || "kid");
@@ -4793,6 +4842,343 @@ const Memory = {
 Screens.memory = (el) => Memory.render(el);
 
 /* ================================================================
+   [S15.2] 로켓단 조우 — 그림자 포켓몬 구출 배틀 (3라운드 퀴즈)
+   모험 출발 시 15% 확률(7판 동안 안 나오면 확정) · 볼 소모 없이 포켓몬 구출
+================================================================ */
+const Rocket = {
+  mon: null, round: 0, mistakes: 0, qtype: "word",
+  word: null, phrase: null, tokens: [], arrIdx: 0, hadWrong: false, busy: false,
+
+  // 이번 모험에서 로켓단이 나올지 판정 (확률 + pity)
+  shouldAppear() {
+    const since = SAVE.rocketSince || 0;
+    if (since >= CONFIG.rocket.pity) return true;
+    return Math.random() < CONFIG.rocket.chance;
+  },
+
+  start() {
+    // 훔쳐온 포켓몬: 해금 지역 안의 레어~유니크 (전설은 제외)
+    let pool = rarityPoolInRange("unique").concat(rarityPoolInRange("rare"));
+    if (!pool.length) pool = rarityPoolInRange("common");
+    const unowned = pool.filter(id => !SAVE.pokedex[id]);
+    if (unowned.length && Math.random() < 0.6) pool = unowned;
+    const id = pool[Math.floor(Math.random() * pool.length)];
+    this.mon = { id, name: POKEMON_KO[id - 1], rarity: rarityOf(id) };
+    this.round = 0;
+    this.mistakes = 0;
+    this.busy = true;
+    SAVE.rocketSince = 0;
+    saveNow();
+    [gifUrl(id), spriteUrl(id)].forEach(u => { const pre = new Image(); pre.src = u; });
+    showScreen("rocket");
+  },
+
+  render(el) {
+    const m = this.mon;
+    const pid = Adventure.partnerId();
+    el.innerHTML =
+      '<div class="topbar">' +
+        '<button class="icon-btn" data-act="go-home">🏠</button>' +
+        '<span class="chip">🪙 ' + SAVE.coins + "</span>" +
+        '<span class="spacer"></span>' +
+        '<span class="chip">🚨 로켓단 출현!</span>' +
+      "</div>" +
+      '<div class="adv-scene rk-scene" id="rk-scene">' +
+        '<div class="rk-heli" id="rk-heli">🚁</div>' +
+        '<div class="battle-platform platform-enemy"></div>' +
+        '<div class="battle-platform platform-ally"></div>' +
+        '<div class="rk-hpwrap hidden" id="rk-hp-wrap">' +
+          '<div class="np-name">😈 로켓단</div>' +
+          '<div class="hpwrap"><span class="hplabel">HP</span><div class="hpbar"><i id="rk-hp"></i></div></div>' +
+        "</div>" +
+        '<div class="rk-boss hidden" id="rk-boss"><div class="face" id="rk-face">😈</div><div class="tag">로켓단</div></div>' +
+        '<div class="adv-enemy rk-shadow hidden" id="rk-mon">' +
+          '<img data-mid="' + m.id + '" src="' + gifUrl(m.id) + '" alt="" onerror="advImgFail(this)">' +
+        "</div>" +
+        (pid
+          ? '<div class="adv-ally hidden" id="adv-ally">' +
+            '<img data-mid="' + pid + '" src="' + gifBackUrl(pid) + '" alt="" onerror="allyImgFail(this)">' +
+            '<div class="ally-label">' + esc(POKEMON_KO[pid - 1]) + "</div></div>"
+          : "") +
+        '<div class="battle-dialog" id="battle-dialog"></div>' +
+      "</div>" +
+      '<div class="rk-round" id="rk-round"></div>' +
+      '<div id="rk-box"></div>' +
+      '<div style="text-align:center;margin-top:12px">' +
+        '<button class="btn ghost" data-act="rocket-giveup" style="font-size:15px;padding:10px 18px">😢 그만하기 (잃는 것은 없어요)</button>' +
+      "</div>";
+
+    // 등장 연출: 헬기 → 경고 섬광 → 그림자 포켓몬 공개
+    SFX.tone(180, 0.5, "sawtooth", 0, 0.16);
+    SFX.tone(140, 0.5, "sawtooth", 0.5, 0.16);
+    const alarm = document.createElement("div");
+    alarm.id = "rk-alarm";
+    document.body.appendChild(alarm);
+    later(() => alarm.remove(), 2300);
+    Adventure.legendImpactBase ? null : null;
+    typeText($("#battle-dialog"), "두두두두… 헬기 소리가 들린다!");
+    later(() => {
+      $("#rk-boss").classList.remove("hidden");
+      $("#rk-hp-wrap").classList.remove("hidden");
+      const hp = $("#rk-hp");
+      if (hp) hp.style.width = "100%";
+      typeText($("#battle-dialog"), "😈 로켓단이 나타났다!");
+      SFX.wrong();
+    }, 1200);
+    later(() => {
+      $("#rk-mon").classList.remove("hidden");
+      const ally = $("#adv-ally");
+      if (ally) ally.classList.remove("hidden");
+      typeText($("#battle-dialog"), "가둬둔 " + josa(m.name, "을를") + " 보여준다… 구해 줘!");
+      SFX.bgmStart();
+    }, 2600);
+    later(() => this.nextRound(), 4000);
+  },
+
+  nextRound() {
+    this.round++;
+    if (this.round > CONFIG.rocket.rounds) { this.win(); return; }
+    $("#rk-round").innerHTML = "라운드 <b>" + this.round + "</b> / " + CONFIG.rocket.rounds +
+      " — 문제를 맞히면 파트너가 공격해요!";
+    this.hadWrong = false;
+    this.busy = false;
+    const listenOk = TTS.ok && SAVE.settings.tts;
+    // 라운드별 문제 유형: 단어 → 듣기 → 문장 만들기
+    if (this.round === 1) this.qtype = "word";
+    else if (this.round === 2) this.qtype = listenOk ? "listen" : "word";
+    else this.qtype = "sentence";
+    if (this.qtype === "sentence") this.renderSentence();
+    else this.renderWord();
+  },
+
+  renderWord() {
+    // 현재 모드 단어 세트에서 출제 (아이=초1, 부모=TOEFL/IELTS, 할머니=여행)
+    const pool = activeWords();
+    const weak = pool.filter(w => isWeakWord(w.id));
+    // 전에 틀린 단어가 있으면 50% 확률로 그중에서 (복습)
+    const src = (weak.length && Math.random() < 0.5) ? weak : pool;
+    this.word = src[Math.floor(Math.random() * src.length)] || pool[0];
+    const w = this.word;
+    const others = pickN(pool.filter(x => x.id !== w.id), 2);
+    const choices = shuffle([w, ...others]);
+    const listen = this.qtype === "listen";
+    $("#rk-box").innerHTML =
+      '<div class="prompt-card">' +
+        (listen
+          ? '<button class="speak-btn" id="rk-speak">🔊</button>' +
+            '<div class="prompt-hint" style="margin-top:8px">잘 듣고 뜻을 골라요! (🔊 다시 듣기)</div>'
+          : '<div class="prompt-emoji" style="font-size:52px">' + emojiHtml(w) + "</div>" +
+            '<div class="prompt-ko">' + esc(w.ko) + "</div>" +
+            '<div class="prompt-hint">영어로 뭘까요?</div>') +
+      "</div>" +
+      '<div class="choices list">' + choices.map(c =>
+        '<button class="choice rk-choice" data-rk="' + c.id + '">' +
+        (listen
+          ? '<span class="ko" style="font-size:17px">' + esc(c.ko) + "</span>"
+          : '<span class="en">' + (hintsOn() ? '<b class="fl">' + esc(c.en[0]) + "</b>" + esc(c.en.slice(1)) : esc(c.en)) + "</span>") +
+        "</button>"
+      ).join("") + "</div>";
+    if (listen) {
+      $("#rk-speak").addEventListener("click", () => { SFX.tap(); TTS.speak(w.en); });
+      later(() => TTS.speak(w.en), 350);
+    }
+    document.querySelectorAll("#rk-box .rk-choice").forEach(b =>
+      b.addEventListener("click", e => this.answerWord(e, b)));
+  },
+
+  renderSentence() {
+    // 짧은 실전 문장 만들기 (도망 퀴즈와 같은 문장 은행 재활용)
+    const p = ESCAPE_PHRASES[Math.floor(Math.random() * ESCAPE_PHRASES.length)];
+    this.phrase = { en: p[0], ko: p[1] };
+    this.tokens = p[0].split(" ");
+    this.arrIdx = 0;
+    $("#rk-box").innerHTML =
+      '<div class="prompt-card">' +
+        '<div class="tv-sit">🚨 마지막 라운드</div>' +
+        '<div class="tv-ko">' + esc(this.phrase.ko) + "</div>" +
+        '<button class="speak-btn small" id="rk-speak" style="position:static;margin:6px auto 0;display:block">🔊</button>' +
+        '<div class="prompt-hint" style="margin-top:6px">단어를 순서대로 눌러 문장을 완성해요!</div>' +
+      "</div>" +
+      '<div class="spell-slots sent-slots">' + this.tokens.map(() => '<div class="spell-slot word-slot"></div>').join("") + "</div>" +
+      '<div class="spell-tiles">' + shuffle(this.tokens.slice()).map(t =>
+        '<button class="spell-tile word-tile rk-tile" data-tok="' + esc(t) + '">' + esc(t) + "</button>").join("") + "</div>";
+    $("#rk-speak").addEventListener("click", () => { SFX.tap(); TTS.speak(this.phrase.en); });
+    later(() => TTS.speak(this.phrase.en), 400);
+    document.querySelectorAll("#rk-box .rk-tile").forEach(b =>
+      b.addEventListener("click", e => this.tapTile(e, b)));
+  },
+
+  miss() {
+    if (!this.hadWrong) {
+      this.hadWrong = true;
+      this.mistakes++;
+      SAVE.stats.totalAnswered++;
+      if (this.word) noteWordResult(this.word.id, false);
+      saveNow();
+    }
+    SFX.wrong();
+    const face = $("#rk-face");
+    if (face) { face.textContent = "😏"; later(() => { if (face) face.textContent = "😈"; }, 900); }
+    typeText($("#battle-dialog"), "😏 로켓단: 그렇게 쉽진 않다고!");
+  },
+
+  answerWord(e, btn) {
+    if (this.busy) return;
+    if (Number(btn.dataset.rk) !== this.word.id) {
+      this.miss();
+      btn.classList.add("wrong");
+      return;
+    }
+    btn.classList.add("right");
+    if (!this.hadWrong) {
+      SAVE.stats.totalAnswered++;
+      noteWordResult(this.word.id, true);
+      saveNow();
+    }
+    TTS.speak(this.word.en);
+    this.hitRocket(e);
+  },
+
+  tapTile(e, btn) {
+    if (this.busy || btn.classList.contains("used")) return;
+    if (btn.dataset.tok !== this.tokens[this.arrIdx]) {
+      this.miss();
+      btn.classList.add("wrong");
+      later(() => btn.classList.remove("wrong"), 420);
+      return;
+    }
+    SFX.click();
+    btn.classList.add("used");
+    const slot = document.querySelectorAll("#rk-box .word-slot")[this.arrIdx];
+    if (slot) { slot.textContent = btn.dataset.tok; slot.classList.add("filled"); }
+    this.arrIdx++;
+    if (this.arrIdx >= this.tokens.length) {
+      TTS.speak(this.phrase.en);
+      this.hitRocket(e);
+    }
+  },
+
+  // 정답 → 파트너가 기술로 공격 → 로켓단 HP 감소
+  hitRocket(e) {
+    this.busy = true;
+    const pid = Adventure.partnerId();
+    const left = CONFIG.rocket.rounds - this.round;
+    const hpPct = Math.round(left / CONFIG.rocket.rounds * 100);
+    const after = () => {
+      const hp = $("#rk-hp");
+      if (hp) hp.style.width = hpPct + "%";
+      const face = $("#rk-face");
+      if (face) face.textContent = left > 0 ? "😰" : "😱";
+      typeText($("#battle-dialog"), left > 0 ? "😰 로켓단: 윽! 제법이구나…" : "😱 로켓단: 이럴 수가!");
+      later(() => this.nextRound(), 1500);
+    };
+    SFX.combo();
+    if (pid) {
+      // 파트너 고유 기술 연출 재활용 (로켓단 화면 대상으로 지정, HP는 아래에서 직접 처리)
+      later(() => Adventure.partnerAttack(pid, 10, () => {
+        drainPartner(pid);
+        after();
+      }, { sceneSel: "#rk-scene", targetSel: "#rk-mon", hpSel: null }), 400);
+      typeText($("#battle-dialog"), "정답!");
+    } else {
+      later(after, 700);
+    }
+  },
+
+  win() {
+    this.busy = true;
+    SFX.bgmStop();
+    const m = this.mon;
+    const perfect = this.mistakes === 0;
+    // 헬기 도망 + 그림자 정화
+    const heli = $("#rk-heli");
+    if (heli) heli.classList.add("leaving");
+    const face = $("#rk-face");
+    if (face) face.textContent = "😱";
+    typeText($("#battle-dialog"), "😱 로켓단: 다음엔 두고 보자~!");
+    SFX.escape();
+    later(() => {
+      const boss = $("#rk-boss");
+      if (boss) boss.classList.add("hidden");
+      const hpw = $("#rk-hp-wrap");
+      if (hpw) hpw.classList.add("hidden");
+      $("#rk-mon").classList.add("purified"); // 그림자가 걷힌다
+      typeText($("#battle-dialog"), "✨ 그림자가 걷히고 " + josa(m.name, "이가") + " 돌아왔다!");
+      SFX.catchOk();
+      Cry.play(m.id);
+      fxConfetti(["✨", "🎉", "💜", "⭐"], 18);
+    }, 1400);
+    later(() => {
+      // 보상: 볼 소모 없이 도감 등록 + 코인 (+ 무실수면 하이퍼볼)
+      const isNew = !SAVE.pokedex[m.id];
+      const wasLine = evoLineComplete(m.id);
+      const entry = SAVE.pokedex[m.id] || { count: 0, first: Date.now() };
+      entry.count++;
+      SAVE.pokedex[m.id] = entry;
+      SAVE.stats.caught++;
+      SAVE.stats.rocketWins = (SAVE.stats.rocketWins || 0) + 1;
+      if (!SAVE.partner) SAVE.partner = m.id;
+      addCoins(CONFIG.rocket.coin, window.innerWidth / 2, window.innerHeight * 0.35);
+      let ballLine = "";
+      if (perfect) {
+        const bk = CONFIG.rocket.perfectBall;
+        SAVE.balls[bk]++;
+        myEco().bought[bk]++;
+        ballLine = "<br>🏅 <b>한 번도 안 틀렸어요!</b> " + CONFIG.balls[bk].name + " +1";
+      }
+      const lineDone = !wasLine && evoLineComplete(m.id);
+      saveNow();
+      const info = CONFIG.rarityInfo[m.rarity];
+      const total = Object.keys(SAVE.pokedex).length;
+      showModal(
+        '<img class="m-img" src="' + spriteUrl(m.id) + '" onerror="this.outerHTML=\'<div class=m-emoji>🔴</div>\'">' +
+        '<div class="m-title">' + esc(m.name) + ' 구출 성공! <span class="rarity-badge ' + info.badge + '">' + info.ko + "</span></div>" +
+        '<div class="m-types">' + typeChipsHtml(m.id) + "</div>" +
+        (lineDone
+          ? '<div class="evo-line" style="text-align:center">🌈 <b>진화 라인 완성!</b> 카드가 반짝반짝 빛나요! ✨</div>'
+          : "") +
+        '<div class="m-text">' +
+          (isNew ? "🎊 <b>새로운 포켓몬!</b> 도감에 등록했어요!<br>" : "또 만났네! ⭐×" + entry.count + "<br>") +
+          "몬스터볼을 쓰지 않고 구했어요!" + ballLine + "<br>도감: <b>" + total + " / " + TOTAL_POKEMON + "</b></div>" +
+        '<div class="coin-earn">🪙 +' + CONFIG.rocket.coin + "</div>" +
+        '<div class="m-btns" style="flex-direction:column;margin-top:12px">' +
+          (Adventure.ballTotal() > 0 ? '<button class="btn red" data-act="modal-adventure">🌿 모험 계속하기</button>' : "") +
+          '<button class="btn purple" data-act="modal-dex">📕 도감 보기</button>' +
+          '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
+        "</div>"
+      );
+      later(() => Adventure.checkRegionClear(), 900);
+    }, 3000);
+  },
+
+  // 그만하기: 손실 없이 로켓단이 포켓몬을 데려가며 퇴장
+  giveUp() {
+    if (this.busy) return;
+    this.busy = true;
+    SFX.bgmStop();
+    const heli = $("#rk-heli");
+    if (heli) heli.classList.add("leaving");
+    const img = $("#rk-mon") && $("#rk-mon").querySelector("img, .fallback");
+    if (img) img.classList.add("fleeing");
+    typeText($("#battle-dialog"), "😈 로켓단: 하하! 이 포켓몬은 내가 가져간다!");
+    later(() => showModal(
+      '<div class="m-emoji">😈🚁</div>' +
+      '<div class="m-title">로켓단이 떠났어요</div>' +
+      '<div class="m-text">아쉽지만 잃은 것은 없어요!<br>다음에 만나면 꼭 구해 주자! 💪</div>' +
+      '<div class="m-btns" style="flex-direction:column">' +
+        (Adventure.ballTotal() > 0 ? '<button class="btn red" data-act="modal-adventure">🌿 모험 계속하기</button>' : "") +
+        '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
+      "</div>"
+    ), 1400);
+  },
+};
+
+Screens.rocket = (el) => {
+  if (!Rocket.mon) { Rocket.start(); return; }
+  Rocket.render(el);
+};
+
+/* ================================================================
    [S15.3] 도망 문장 퀴즈 — 짧고 자주 쓰는 문장(3~5단어)을 만들어야 도망 성공
    뜻 + 소리를 주고 단어 타일을 순서대로 누르는 방식 (틀려도 계속 시도)
 ================================================================ */
@@ -5431,6 +5817,10 @@ const Adventure = {
   },
 
   encounter() {
+    // 로켓단 조우 (15% + 7판 pity) — 야생 포켓몬 대신 등장
+    SAVE.rocketSince = (SAVE.rocketSince || 0) + 1;
+    if (Rocket.shouldAppear()) { Rocket.start(); return; }
+    saveNow();
     let rarity = this.rollRarity();
     // 해금된 탐험 지역(세대) 안에서만 출현
     let pool = rarityPoolInRange(rarity);
@@ -5629,10 +6019,13 @@ const Adventure = {
   },
 
   // 파트너 고유 기술 연출: 런지 → 타입 발사체 → 명중(흔들림+💥) → HP 감소
-  partnerAttack(pid, totalBonus, done) {
-    const scene = $("#adv-scene");
+  // opts.targetSel / opts.hpSel 로 대상을 바꿀 수 있음 (로켓단 배틀에서 재활용)
+  partnerAttack(pid, totalBonus, done, opts) {
+    const o = opts || {};
+    const scene = $(o.sceneSel || "#adv-scene");
     const allyEl = $("#adv-ally");
-    const monEl = $("#adv-mon");
+    const monEl = $(o.targetSel || "#adv-mon");
+    if (!scene || !monEl) { if (done) done(); return; } // 대상이 없으면 연출 생략
     const dex = DEX_INFO[pid];
     const moveName = dex ? dex[1].split(" · ")[0] : "몸통박치기";
     const fx = TYPE_FX[(dex ? dex[0] : "노말").split("·")[0]] || "💥";
@@ -5667,8 +6060,10 @@ const Adventure = {
         burst.textContent = "💥";
         monEl.appendChild(burst);
         later(() => burst.remove(), 600);
-        const hp = $("#enemy-hp");
-        if (hp) hp.style.width = Math.max(20, 100 - totalBonus * 3) + "%";
+        if (o.hpSel !== null) { // null이면 HP는 호출한 쪽에서 직접 처리
+          const hp = $(o.hpSel || "#enemy-hp");
+          if (hp) hp.style.width = Math.max(20, 100 - totalBonus * 3) + "%";
+        }
         later(done, 650);
       }, 480);
     }, 400);
@@ -6196,6 +6591,7 @@ const Family = {
       totalCorrect: mx(sa.totalCorrect, sb.totalCorrect),
       bestCombo: mx(sa.bestCombo, sb.bestCombo),
       caught: mx(sa.caught, sb.caught),
+      rocketWins: mx(sa.rocketWins, sb.rocketWins),
       gamesPlayed: {
         quiz: mx(sa.gamesPlayed && sa.gamesPlayed.quiz, sb.gamesPlayed && sb.gamesPlayed.quiz),
         chain: mx(sa.gamesPlayed && sa.gamesPlayed.chain, sb.gamesPlayed && sb.gamesPlayed.chain),
@@ -6371,7 +6767,7 @@ Screens.family = (el) => {
 };
 
 /* ---- 가족 톡 화면 ---- */
-const CHAT_STAMPS = ["🎉 포켓몬 잡았어!", "📖 오늘 공부 다 했어요", "👍 잘했어!", "❤️ 사랑해", "🌈 진화 완성했어!", "🎁 볼 사놨어"];
+const CHAT_STAMPS = ["🎉 포켓몬 잡았어!", "📖 오늘 공부 다 했어요", "👍 잘했어!", "❤️ 사랑해", "🌈 진화 완성했어!", "🎁 볼 사놨어", "😈 로켓단 물리쳤어!", "🗺️ 새 지역 열었어!"];
 
 function chatMsgsHtml() {
   const my = chatRole();
