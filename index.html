@@ -891,9 +891,10 @@ const CONFIG = {
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
   reviewChance: 0.25,    // 조우 시험·로켓단 배틀에서 '전에 틀린 단어'가 나올 확률 (나머지는 전체 단어)
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
-  // 로켓단 조우 — 모험 출발 시 10% 확률, 7판 동안 안 나오면 다음 판 확정
+  // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
+  // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
-  rocket: { chance: 0.10, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
+  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -6057,7 +6058,7 @@ const Adventure = {
       );
       return;
     }
-    this.encounter();
+    this.encounter({ noRocket: true }); // 홈·상점에서 출발하는 첫 조우는 야생 포켓몬만
   },
 
   rollRarity() {
@@ -6070,10 +6071,13 @@ const Adventure = {
     return "common";
   },
 
-  encounter() {
-    // 로켓단 조우 (15% + 7판 pity) — 야생 포켓몬 대신 등장
+  // opts.noRocket: 홈·상점에서 새로 출발하는 첫 조우 — 로켓단이 나오지 않음
+  // (일반 포켓몬이 나오면 홈으로 나갔다 다시 들어오며 로켓단만 노리는 것을 막기 위함)
+  encounter(opts) {
+    const noRocket = !!(opts && opts.noRocket);
+    // 로켓단 조우 (확률 + pity) — 야생 포켓몬 대신 등장 (모험을 이어갈 때만)
     SAVE.rocketSince = (SAVE.rocketSince || 0) + 1;
-    if (Rocket.shouldAppear() && Rocket.stolenPool().length) { Rocket.start(); return; }
+    if (!noRocket && Rocket.shouldAppear() && Rocket.stolenPool().length) { Rocket.start(); return; }
     saveNow();
     this.encounterWild();
   },
