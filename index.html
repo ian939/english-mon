@@ -240,6 +240,15 @@ img { -webkit-user-drag: none; }
 }
 .coach-line .cf { font-size: 22px; flex: none; }
 .coach-line b { color: var(--ink); }
+.coach-line .ct { flex: 1; }
+/* 코치 줄의 다시 듣기 버튼 — 멈춤 중에도 몇 번이든 들을 수 있어요 */
+.coach-line .coach-speak {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+  background: #ffb703; color: #fff; font-size: 20px; line-height: 1;
+  box-shadow: 0 3px 8px rgba(255,150,0,.35);
+}
+.coach-line .coach-speak:active { transform: scale(.92); }
+body.granny .coach-line .coach-speak { width: 48px; height: 48px; font-size: 24px; }
 .coach-line .cbar { position: absolute; left: 0; bottom: 0; height: 4px; background: #ffb703; animation: coachTick linear forwards; }
 @keyframes coachIn { from { opacity: 0; transform: translateY(-6px) } to { opacity: 1; transform: none } }
 @keyframes coachTick { from { width: 100% } to { width: 0 } }
@@ -4025,8 +4034,11 @@ function coachPause(box, msg, replayEn, done) {
     const el = document.createElement("div");
     el.className = "coach-line";
     el.innerHTML = '<span class="cf">🐾</span><span class="ct">' + msg + "</span>" +
+      (replayEn ? '<button type="button" class="coach-speak" aria-label="다시 듣기">🔊</button>' : "") +
       '<i class="cbar" style="animation-duration:' + ms + 'ms"></i>';
     if (list) list.parentNode.insertBefore(el, list); else box.appendChild(el);
+    const sp = el.querySelector(".coach-speak");
+    if (sp) sp.addEventListener("click", (ev) => { ev.stopPropagation(); SFX.tap(); TTS.speak(replayEn); });
     later(() => el.remove(), ms);
   }
   if (replayEn) TTS.speak(replayEn);
@@ -4691,11 +4703,14 @@ const Quiz = {
       '<div class="prompt-card">' +
         '<div class="prompt-emoji" style="font-size:52px">' + emojiHtml(w) + "</div>" +
         '<div class="sent-ko" style="font-size:17px;font-weight:900;color:var(--ink)">' + esc(d.koLine) + "</div>" +
-        '<div class="prompt-hint">단어 타일을 순서대로 눌러서 영어 문장을 만들어요!</div>' +
+        '<button class="speak-btn small" id="arr-speak" style="position:static;margin:6px auto 0;display:block">🔊</button>' +
+        '<div class="prompt-hint">잘 듣고, 단어 타일을 순서대로 눌러서 문장을 만들어요!</div>' +
       "</div>" +
       '<div class="spell-slots sent-slots">' + d.tokens.map(() => '<div class="spell-slot word-slot"></div>').join("") + "</div>" +
       '<div class="spell-tiles">' + tiles.map(t => '<button class="spell-tile word-tile" data-tok="' + esc(t) + '">' + esc(t) + "</button>").join("") + "</div>";
     armChoices(box.querySelector(".spell-tiles"));
+    const asp = $("#arr-speak");
+    if (asp) asp.addEventListener("click", () => { SFX.tap(); TTS.speak(d.enFull); });
     box.querySelectorAll(".word-tile").forEach(b => b.addEventListener("click", (e) => this.arrTap(e, b)));
   },
 
@@ -4716,7 +4731,7 @@ const Quiz = {
       later(() => btn.classList.remove("wrong"), 420);
       if (kidFocusOn()) {
         if (this.tries >= CONFIG.kidFocus.maxTries) { this.revealSkip(); return; }
-        coachPause($("#quiz-box"), "아직 순서가 달라요! 한글 문장을 다시 읽어 볼까?");
+        coachPause($("#quiz-box"), "아직 순서가 달라요! 문장을 잘 듣고 순서를 맞춰 봐요", d.enFull);
       }
       return;
     }
@@ -4780,7 +4795,7 @@ const Quiz = {
     } else if (this.qdir === "koen") {                   // 한글 → 영어 (보기 = 영어)
       coachPause(box, coachMsg(picked, "우리가 찾는 건 <b>" + esc(w.ko) + "</b>!"), picked.en);
     } else {                                             // 듣기·영어 → 한글 (보기 = 한글)
-      coachPause(box, coachMsgKo(picked, "다시 들어 볼까? 🔊"), w.en);
+      coachPause(box, coachMsgKo(picked, "🔊 를 눌러 다시 들어 볼까?"), w.en);
     }
   },
 
@@ -5479,7 +5494,7 @@ const Rocket = {
     if (Number(btn.dataset.rk) !== this.word.id) {
       const picked = activeWords().find(x => x.id === Number(btn.dataset.rk));
       this.miss(picked && (this.qtype === "listen"
-        ? { msg: coachMsgKo(picked, "다시 들어 볼까? 🔊"), replay: this.word.en }
+        ? { msg: coachMsgKo(picked, "🔊 를 눌러 다시 들어 볼까?"), replay: this.word.en }
         : { msg: coachMsg(picked, "우리가 찾는 건 <b>" + esc(this.word.ko) + "</b>!"), replay: picked.en }));
       btn.classList.add("wrong");
       return;
@@ -5497,7 +5512,7 @@ const Rocket = {
   tapTile(e, btn) {
     if (this.busy || btn.classList.contains("used")) return;
     if (btn.dataset.tok !== this.tokens[this.arrIdx]) {
-      this.miss({ msg: "아직 순서가 달라요! 한글 문장을 다시 읽어 볼까?" });
+      this.miss({ msg: "아직 순서가 달라요! 문장을 잘 듣고 순서를 맞춰 봐요", replay: this.phrase.en });
       btn.classList.add("wrong");
       later(() => btn.classList.remove("wrong"), 420);
       return;
@@ -6576,7 +6591,7 @@ const Adventure = {
         const w = this.quizWord;
         if (picked) coachPause($(".battle-quiz"),
           this.quizListen                                  // 듣기 문제는 보기가 한글
-            ? coachMsgKo(picked, "다시 들어 볼까? 🔊")
+            ? coachMsgKo(picked, "🔊 를 눌러 다시 들어 볼까?")
             : coachMsg(picked, "우리가 찾는 건 <b>" + esc(w.ko) + "</b>!"),
           this.quizListen ? w.en : picked.en);
       }
