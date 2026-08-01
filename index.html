@@ -913,8 +913,8 @@ const CONFIG = {
   kidFocus: {
     on: true,
     armMs: 700,        // 문제가 뜨고 나서 보기를 누를 수 있게 되기까지 (문제를 읽을 시간)
-    wrongLockMs: 1300, // 오답 후 잠깐 멈춤 — 그동안 고른 보기의 뜻을 알려주고 다시 들려줌
-    maxTries: 2,       // 한 문제에 허용하는 시도 횟수 (넘으면 정답을 보여주고 나중에 다시 출제)
+    wrongLockMs: 5000, // 오답 후 멈춤 — 그동안 고른 보기의 뜻을 알려주고 다시 들려줌
+    maxTries: 3,       // 한 문제에 허용하는 시도 횟수 (넘으면 정답을 보여주고 나중에 다시 출제)
   },
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
@@ -5056,8 +5056,8 @@ const Chain = {
         if (picked) coachPause($("#chain-box"),
           coachMsgKo(picked, "<b>" + esc(need) + "</b> 로 시작하지 않아요!"), this.current.en);
       }
-      // 힌트 공개 — 아이 모드는 시도가 2번뿐이라 1회 오답에서, 할머니 모드는 기존대로 2회에서
-      if (this.wrongCount >= (kidFocusOn() ? 1 : 2) && hintsOn()) {
+      // 힌트 공개 — 아이 모드는 마지막 시도가 남았을 때, 할머니 모드는 기존대로 2회 오답에서
+      if (this.wrongCount >= (kidFocusOn() ? CONFIG.kidFocus.maxTries - 1 : 2) && hintsOn()) {
         // 아이 모드 힌트: 남은 보기들의 영어 단어 공개 (첫 글자 강조) — 부모 모드는 힌트 없음
         document.querySelectorAll("#chain-box .choice:not(.wrong)").forEach(el => {
           if (el.querySelector(".en-hint")) return;
