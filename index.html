@@ -889,6 +889,7 @@ const CONFIG = {
   spellChance: 0.2,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
+  reviewChance: 0.25,    // 조우 시험·로켓단 배틀에서 '전에 틀린 단어'가 나올 확률 (나머지는 전체 단어)
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
   // 로켓단 조우 — 모험 출발 시 10% 확률, 7판 동안 안 나오면 다음 판 확정
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
@@ -1147,6 +1148,190 @@ const WORDS = [];
     ["thursday","목요일","📅"], ["friday","금요일","📅"], ["saturday","토요일","📅"], ["sunday","일요일","📅"],
     ["birthday","생일","🎂"], ["holiday","휴일","🎉"], ["christmas","크리스마스","🎄"], ["halloween","핼러윈","🎃"],
     ["party","파티","🥳"],
+  ]);
+
+  /* ================= 확장 단어 (초등 저학년 확장 어휘) ================= */
+  add("animal", [
+    ["camel","낙타","🐫"], ["donkey","당나귀","🫏"], ["llama","라마","🦙"], ["sloth","나무늘보","🦥"],
+    ["otter","수달","🦦"], ["raccoon","라쿤","🦝"], ["skunk","스컹크","🦨"], ["beaver","비버","🦫"],
+    ["rat","시궁쥐","🐀"], ["swan","백조","🦢"], ["peacock","공작","🦚"], ["parrot","앵무새","🦜"],
+    ["flamingo","플라밍고","🦩"], ["rooster","수탉","🐓"], ["turkey","칠면조","🦃"], ["dove","비둘기","🕊️"],
+    ["seal","바다표범","🦭"], ["jellyfish","해파리","🪼"], ["shrimp","새우","🦐"], ["lobster","바닷가재","🦞"],
+    ["squid","오징어","🦑"], ["worm","지렁이","🪱"], ["ladybug","무당벌레","🐞"], ["lizard","도마뱀","🦎"],
+    ["crocodile","악어","🐊"],
+  ]);
+  add("fruit", [
+    ["cabbage","양배추","🥬"], ["spinach","시금치","🥬"], ["cauliflower","콜리플라워","🥦"], ["eggplant","가지","🍆"],
+    ["olive","올리브","🫒"], ["bean","콩","🫘"], ["pea","완두콩","🫛"], ["chestnut","밤","🌰"],
+    ["walnut","호두","🌰"], ["almond","아몬드","🥜"], ["sweet potato","고구마","🍠"], ["ginger","생강","🫚"],
+    ["radish","무","🥕"], ["celery","샐러리","🥬"], ["lime","라임","🍋"], ["plum","자두","🍑"],
+    ["apricot","살구","🍑"], ["fig","무화과","🍇"], ["papaya","파파야","🥭"], ["pomegranate","석류","🍎"],
+    ["grapefruit","자몽","🍊"], ["raspberry","라즈베리","🍓"], ["blackberry","블랙베리","🫐"], ["cranberry","크랜베리","🍒"],
+    ["persimmon","감","🍊"],
+  ]);
+  add("food", [
+    ["pancake","팬케이크","🥞"], ["waffle","와플","🧇"], ["toast","토스트","🍞"], ["jam","잼","🍓"],
+    ["syrup","시럽","🍯"], ["cereal","시리얼","🥣"], ["dumpling","만두","🥟"], ["pasta","파스타","🍝"],
+    ["spaghetti","스파게티","🍝"], ["taco","타코","🌮"], ["burrito","부리토","🌯"], ["curry","카레","🍛"],
+    ["stew","스튜(찌개)","🍲"], ["steak","스테이크","🥩"], ["bacon","베이컨","🥓"], ["pudding","푸딩","🍮"],
+    ["jelly","젤리","🍮"], ["cupcake","컵케이크","🧁"], ["cracker","크래커","🍘"], ["pretzel","프레첼","🥨"],
+    ["croissant","크루아상","🥐"], ["bagel","베이글","🥯"], ["sushi","초밥","🍣"], ["ramen","라면","🍜"],
+    ["salt","소금","🧂"],
+  ]);
+  add("color", [
+    ["sky blue","하늘색","🩵"], ["navy","남색","🔵"], ["violet","제비꽃색","🟣"], ["mint","민트색","🍃"],
+    ["cream","크림색","🥛"], ["bronze","청동색","🥉"], ["colorful","알록달록한","🌈"], ["shiny","반짝이는","✨"],
+    ["pale","연한","🤍"], ["deep color","진한 색","🎨"],
+  ]);
+  add("number", [
+    ["eleven","열하나(11)","🔢"], ["twelve","열둘(12)","🔢"], ["thirteen","열셋(13)","🔢"], ["fourteen","열넷(14)","🔢"],
+    ["fifteen","열다섯(15)","🔢"], ["sixteen","열여섯(16)","🔢"], ["seventeen","열일곱(17)","🔢"], ["eighteen","열여덟(18)","🔢"],
+    ["nineteen","열아홉(19)","🔢"], ["twenty","스물(20)","🔢"], ["thirty","서른(30)","🔢"], ["forty","마흔(40)","🔢"],
+    ["fifty","쉰(50)","🔢"], ["sixty","예순(60)","🔢"], ["seventy","일흔(70)","🔢"], ["eighty","여든(80)","🔢"],
+    ["ninety","아흔(90)","🔢"], ["thousand","천(1000)","🔢"], ["million","백만","🔢"], ["first","첫 번째","🥇"],
+    ["second","두 번째","🥈"], ["third","세 번째","🥉"], ["half","절반","➗"], ["double","두 배","✖️"],
+    ["dozen","열두 개","📦"],
+  ]);
+  add("family", [
+    ["uncle","삼촌","👨"], ["aunt","이모·고모","👩"], ["cousin","사촌","👫"], ["nephew","조카(남)","👦"],
+    ["niece","조카(여)","👧"], ["husband","남편","🤵"], ["wife","아내","👰"], ["son","아들","👦"],
+    ["daughter","딸","👧"], ["parents","부모님","👪"], ["child","아이","🧒"], ["adult","어른","🧑"],
+    ["teenager","청소년","🧑‍🎓"], ["neighbor","이웃","🏘️"], ["guest","손님","🙋"], ["stranger","낯선 사람","❓"],
+    ["couple","커플","💑"], ["group","무리","👥"], ["leader","대표(리더)","👑"], ["member","구성원","🙋"],
+    ["partner","짝(동반자)","🤝"], ["friendship","우정","💞"], ["kindness","친절","😇"], ["helper","도와주는 사람","🤲"],
+    ["hug time","안아주는 시간","🤗"],
+  ]);
+  add("body", [
+    ["neck","목","🧣"], ["chest","가슴","🫁"], ["waist","허리","👖"], ["knee","무릎","🦵"],
+    ["ankle","발목","🦶"], ["elbow","팔꿈치","💪"], ["wrist","손목","⌚"], ["palm","손바닥","✋"],
+    ["nail","손톱","💅"], ["chin","턱","🧑"], ["cheek","볼","😊"], ["forehead","이마","🧑"],
+    ["eyebrow","눈썹","👁️"], ["eyelash","눈썹털","👁️"], ["lip","입술","👄"], ["throat","목구멍","🗣️"],
+    ["skin","피부","🧴"], ["toe","발가락","🦶"], ["fist","주먹","✊"], ["voice","목소리","🗣️"],
+    ["breath","숨","💨"], ["sweat","땀","💧"], ["tear","눈물","😢"], ["hiccup","딸꾹질","😮"],
+    ["freckle","주름살(주근깨)","😊"],
+  ]);
+  add("school", [
+    ["classroom","교실","🏫"], ["blackboard","칠판","📋"], ["chalk","분필","🖌️"], ["marker","마커펜","🖊️"],
+    ["dictionary","사전","📖"], ["folder","서류철","📁"], ["stapler","스테이플러","📎"], ["tape","테이프","📏"],
+    ["calculator","계산기","🧮"], ["globe","지구본","🌐"], ["uniform","교복","👔"], ["principal","교장 선생님","👔"],
+    ["classmate","반 친구","🧑‍🎓"], ["lesson","수업","📚"], ["quiz","쪽지 시험","❓"], ["prize","상","🏆"],
+    ["science","과학","🔬"], ["history","역사","📜"], ["english","영어","🔤"], ["diary","일기","📔"],
+    ["poster","포스터","🖼️"], ["sticker","스티커","✨"], ["pencil case","필통","✏️"], ["school bell","학교 종","🔔"],
+    ["field trip","현장 학습","🚌"],
+  ]);
+  add("house", [
+    ["roof","지붕","🏠"], ["wall","벽","🧱"], ["ceiling","천장","🏠"], ["garage","차고","🚗"],
+    ["yard","마당","🌿"], ["fence","울타리","🪵"], ["kitchen","주방","🍳"], ["bathroom","욕실","🚿"],
+    ["bedroom","침실","🛏️"], ["living room","거실","🛋️"], ["closet","옷장","🚪"], ["drawer","서랍","🗄️"],
+    ["shelf","선반","📚"], ["curtain","커튼","🪟"], ["carpet","카펫","🧶"], ["fan","선풍기","💨"],
+    ["refrigerator","냉장고","🧊"], ["oven","오븐","🍞"], ["microwave","전자레인지","📻"], ["toaster","토스터","🍞"],
+    ["kettle","주전자","🫖"], ["pan","프라이팬","🍳"], ["pot","냄비","🍲"], ["tray","쟁반","🍽️"],
+    ["basket","바구니","🧺"],
+  ]);
+  add("clothes", [
+    ["coat","코트","🧥"], ["sweater","스웨터","🧶"], ["vest","조끼","🦺"], ["skirt","치마","👗"],
+    ["jeans","청바지","👖"], ["pajamas","잠옷","🩱"], ["swimsuit","수영복","🩱"], ["apron","앞치마","🥻"],
+    ["belt","벨트","🎽"], ["tie","넥타이","👔"], ["mitten","벙어리장갑","🧤"], ["sandal","샌들","🩴"],
+    ["sneaker","운동화","👟"], ["slipper","슬리퍼","🥿"], ["pocket","주머니","👖"], ["zipper","지퍼","🤐"],
+    ["collar","옷깃","👔"], ["sleeve","소매","👕"], ["helmet","헬멧","⛑️"], ["raincoat","비옷","🧥"],
+    ["costume","분장옷","🎭"], ["bracelet","팔찌","📿"], ["earring","귀걸이","💎"], ["purse","손지갑","👛"],
+    ["jewel","보석","💎"],
+  ]);
+  add("nature", [
+    ["hill","언덕","⛰️"], ["cliff","절벽","🧗"], ["cave","동굴","🕳️"], ["desert","사막","🏜️"],
+    ["jungle","정글","🌴"], ["field","들판","🌾"], ["pond","연못","💧"], ["lake","호수","🏞️"],
+    ["stream","개울","🏞️"], ["volcano","화산","🌋"], ["shore","바닷가","🏖️"], ["sand","모래","🏖️"],
+    ["mud","진흙","🟫"], ["branch","나뭇가지","🌿"], ["root","뿌리","🌱"], ["seed","씨앗","🌰"],
+    ["bud","꽃봉오리","🌷"], ["petal","꽃잎","🌸"], ["moss","이끼","🌿"], ["cactus","선인장","🌵"],
+    ["palm tree","야자수","🌴"], ["bamboo","대나무","🎍"], ["vine","덩굴","🌿"], ["dew","이슬","💧"],
+    ["horizon","지평선","🌅"],
+  ]);
+  add("weather", [
+    ["fog","안개","🌫️"], ["mist","엄무","🌫️"], ["frost","서리","❄️"], ["hail","우박","🌨️"],
+    ["thunder","천둥","⚡"], ["breeze","산들바람","🍃"], ["typhoon","태풍","🌀"], ["tornado","토네이도","🌪️"],
+    ["heat","더위","🥵"], ["warm","따뜻한","☀️"], ["cool","시원한","❄️"], ["humid","습한","💧"],
+    ["sunny","맑은","☀️"], ["cloudy","흐린","☁️"], ["rainy","비 오는","🌧️"], ["snowy","눈 오는","🌨️"],
+    ["windy","바람 부는","🌬️"], ["stormy","폭풍우 치는","⛈️"], ["temperature","기온","🌡️"], ["forecast","일기예보","📺"],
+    ["shade","그늘","🌂"], ["season","계절","🍂"], ["sunrise","해돋이","🌅"], ["sunset","해넘이","🌇"],
+    ["puddle","물웅덩이","💧"],
+  ]);
+  add("vehicle", [
+    ["van","승합차","🚐"], ["jeep","지프차","🚙"], ["bulldozer","불도저","🚜"], ["crane","크레인","🏗️"],
+    ["wagon","수레(왜건)","🛒"], ["cart","카트","🛒"], ["sled","썰매","🛷"], ["skateboard","스케이트보드","🛹"],
+    ["canoe","카누","🛶"], ["kayak","카약","🛶"], ["submarine","잠수함","🚢"], ["yacht","요트","🛥️"],
+    ["spaceship","우주선","🚀"], ["satellite","인공위성","🛰️"], ["escalator","에스컬레이터","🛗"], ["cable car","케이블카","🚡"],
+    ["tram","전차(트램)","🚊"], ["monorail","모노레일","🚝"], ["ferry","여객선","⛴️"], ["sailboat","돛배","⛵"],
+    ["engine","엔진","⚙️"], ["tire","타이어","🛞"], ["horn","경적","📢"], ["fuel","연료","⛽"],
+    ["parking","주차","🅿️"],
+  ]);
+  add("place", [
+    ["cafe","카페","☕"], ["theater","극장","🎭"], ["cinema","영화관","🎬"], ["stadium","경기장","🏟️"],
+    ["salon","미용실","💈"], ["post office","우체국","📮"], ["fire station","소방서","🚒"], ["police station","경찰서","🚓"],
+    ["factory","공장","🏭"], ["temple","절","🛕"], ["palace","궁전","🏰"], ["tunnel","터널","🚇"],
+    ["crosswalk","횡단보도","🚸"], ["sidewalk","인도","🚶"], ["village","마을","🏘️"], ["downtown","시내","🏙️"],
+    ["countryside","시골","🌾"], ["amusement park","놀이공원","🎡"], ["aquarium","수족관","🐠"], ["campsite","캠프장","🏕️"],
+    ["clinic","의원","🏥"], ["gallery","미술관","🖼️"], ["stationery store","문구점","✏️"], ["flower shop","꽃집","💐"],
+    ["ice rink","아이스링크","⛸️"],
+  ]);
+  add("sport", [
+    ["swimming","수영","🏊"], ["running","달리기","🏃"], ["cycling","자전거 타기","🚴"], ["hiking","등산","🥾"],
+    ["climbing","암벽 타기","🧗"], ["skating","스케이팅","⛸️"], ["surfing","서핑","🏄"], ["diving","다이빙","🤿"],
+    ["boxing","권투","🥊"], ["wrestling","레슬링","🤼"], ["judo","유도","🥋"], ["taekwondo","태권도","🥋"],
+    ["archery","활쏘기","🏹"], ["bowling","볼링","🎳"], ["hockey","하키","🏒"], ["rugby","럭비","🏉"],
+    ["marathon","마라톤","🏃"], ["coach","코치","📢"], ["referee","심판","🧑‍⚖️"], ["whistle","호루라기","📢"],
+    ["net","네트(그물)","🥅"], ["jump rope","줄넘기","🪢"], ["hula hoop","훌라후프","⭕"], ["seesaw","시소","🛝"],
+    ["slide","미끄럼틀","🛝"],
+  ]);
+  add("job", [
+    ["baker","제빵사","🧑‍🍳"], ["barber","이발사","💈"], ["tailor","재봉사","🧵"], ["plumber","배관공","🔧"],
+    ["carpenter","목수","🔨"], ["mechanic","정비사","🔧"], ["engineer","공학자","👷"], ["lawyer","변호사","⚖️"],
+    ["judge","판사","👨‍⚖️"], ["writer","작가","✍️"], ["reporter","기자","🎤"], ["photographer","사진작가","📷"],
+    ["actor","배우","🎭"], ["model","모델","💃"], ["athlete","운동선수","🏅"], ["guide","안내인","🗺️"],
+    ["sailor","선원","⚓"], ["captain","선장","👨‍✈️"], ["clerk","점원","🧑‍💼"], ["waiter","종업원","🧑‍🍳"],
+    ["vet","동물병원 의사","🐶"], ["driver","운전사","🚗"], ["cleaner","청소하는 분","🧹"], ["cashier","계산원","💳"],
+    ["librarian","도서관 사서","📚"],
+  ]);
+  add("verb", [
+    ["lie down","눕다","🛌"], ["crawl","기어가다","🐛"], ["roll","구르다","🎳"], ["swing","흔들리다","🎢"],
+    ["hang","걸다","🧷"], ["lift","들어올리다","🏋️"], ["drop","떨어뜨리다","⬇️"], ["hit","치다","🥊"],
+    ["blow","불다","💨"], ["breathe","숨쉬다","😮‍💨"], ["sneeze","재채기하다","🤧"], ["yawn","하품하다","🥱"],
+    ["whisper","속삭이다","🤫"], ["shout","소리치다","📢"], ["paint","색칠하다","🎨"], ["fold","접다","📄"],
+    ["tie up","묶다","🪢"], ["brush teeth","이를 닦다","🪥"], ["comb","머리를 빗다","💇"], ["wear","입다","👕"],
+    ["sell","팔다","🛍️"], ["measure","재다","📏"], ["pour","붓다","🫗"], ["mix","섞다","🥄"],
+    ["bake","굽다","🍞"], ["boil","끓이다","♨️"], ["fry","튀기다","🍳"], ["freeze","얼리다","🧊"],
+    ["melt","녹다","💧"], ["plant a tree","나무를 심다","🌱"], ["feed","먹이를 주다","🍼"], ["enter","들어가다","🚪"],
+    ["exit","나가다","🚪"], ["return","돌아오다","🔄"], ["follow","따라가다","👣"], ["chase","쫓아가다","🏃"],
+    ["hide","숨다","🙈"], ["lose","잃다","😢"], ["win","이기다","🏆"], ["share","나누다","🤝"],
+    ["send","보내다","📤"], ["bring","가져오다","🎁"], ["keep","보관하다","📦"], ["save money","돈을 모으다","💰"],
+    ["build","짓다","🔨"], ["break","부수다","💔"], ["sweep","쓸다","🧹"], ["dig","파다","⛏️"],
+    ["knock","두드리다","✊"], ["point","가리키다","👉"],
+  ]);
+  add("feeling", [
+    ["glad","기쁜","😄"], ["upset","속상한","😤"], ["lonely","외로운","😔"], ["jealous","부러운","😒"],
+    ["proud","자랑스러운","😌"], ["calm","차분한","😌"], ["nervous","긴장한","😬"], ["curious","궁금한","🤔"],
+    ["confused","혼란스러운","😕"], ["disappointed","실망한","😞"], ["grateful","고마운","🙏"], ["safe","안전한","🛡️"],
+    ["comfortable","편안한","😌"], ["energetic","기운찬","⚡"], ["lazy","게으른","🦥"], ["eager","몹시 하고 싶은","😃"],
+    ["afraid","두려운","😨"], ["cheerful","명랑한","😁"], ["gentle","다정한","🤗"], ["polite","예의 바른","🙇"],
+    ["honest","솔직한","💯"], ["patient","참을성 있는","⏳"], ["generous","너그러운","🎁"], ["friendly","친근한","😊"],
+    ["thankful","감사하는","🙏"],
+  ]);
+  add("opposite", [
+    ["thick","두꺼운","📚"], ["thin","얇은","📄"], ["wide","넓은","↔️"], ["narrow","좁은","↕️"],
+    ["deep","깊은","🕳️"], ["shallow","얕은","🥣"], ["empty","빈","🕳️"], ["closed","닫힌","🔒"],
+    ["same","같은","🟰"], ["different","다른","🔀"], ["inside","안쪽","📥"], ["outside","바깥쪽","📤"],
+    ["above","위쪽에","⬆️"], ["below","아래쪽에","⬇️"], ["front","앞","⏩"], ["behind","뒤","⏪"],
+    ["top","맨 위","🔝"], ["bottom","맨 아래","🔽"], ["more","더 많이","➕"], ["less","더 적게","➖"],
+    ["many","많은","🔢"], ["few","적은","🤏"], ["none","하나도 없는","🚫"], ["straight line","곧은 선","📏"],
+    ["round","둥근","⭕"],
+  ]);
+  add("time", [
+    ["noon","정오","🕛"], ["midnight","자정","🌃"], ["dawn","새벽","🌅"], ["dusk","해질녘","🌆"],
+    ["hour","시간(1시간)","⏰"], ["minute","분","⏱️"], ["weekend","주말","🎉"], ["weekday","평일","📅"],
+    ["january","1월","❄️"], ["february","2월","💝"], ["march","3월","🌱"], ["april","4월","🌸"],
+    ["may","5월","🌷"], ["june","6월","☀️"], ["july","7월","🏖️"], ["august","8월","🌻"],
+    ["september","9월","🍂"], ["october","10월","🎃"], ["november","11월","🍁"], ["december","12월","🎄"],
+    ["calendar","달력","📅"], ["moment","순간","⌛"], ["future","미래","🔮"], ["past","과거","🔙"],
+    ["forever","영원히","♾️"],
   ]);
 }
 
@@ -5024,8 +5209,8 @@ const Rocket = {
     // 현재 모드 단어 세트에서 출제 (아이=초1, 부모=TOEFL/IELTS, 할머니=여행)
     const pool = activeWords();
     const weak = pool.filter(w => isWeakWord(w.id));
-    // 전에 틀린 단어가 있으면 50% 확률로 그중에서 (복습)
-    const src = (weak.length && Math.random() < 0.5) ? weak : pool;
+    // 기본은 전체 단어, 일부만 복습 단어 (CONFIG.reviewChance)
+    const src = (weak.length && Math.random() < CONFIG.reviewChance) ? weak : pool;
     this.word = src[Math.floor(Math.random() * src.length)] || pool[0];
     const w = this.word;
     const others = pickN(pool.filter(x => x.id !== w.id), 2);
@@ -5967,13 +6152,15 @@ const Adventure = {
   // 조우 영어 시험: 첫 시도 정답이면 이번 조우 동안 포획 확률 +15%p (코인 없음)
   // 자주 틀린 단어가 있으면 70% 확률로 그중에서 출제 (자동 복습)
   startQuiz() {
+    // 기본은 전체 단어에서 골고루, 일부만 복습 단어 (CONFIG.reviewChance)
     const weak = reviewPool();
     let w, isReview = false;
-    if (weak.length && Math.random() < 0.7) {
-      w = weak[Math.floor(Math.random() * Math.min(weak.length, 10))];
+    if (weak.length && Math.random() < CONFIG.reviewChance) {
+      w = weak[Math.floor(Math.random() * weak.length)];
       isReview = true;
     } else {
-      w = activeWords()[Math.floor(Math.random() * activeWords().length)];
+      const pool = activeWords();
+      w = pool[Math.floor(Math.random() * pool.length)];
     }
     const listenMode = TTS.ok && SAVE.settings.tts && Math.random() < 0.4;
     this.quizWord = w; this.quizWrong = false; this.quizDone = false;
