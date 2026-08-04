@@ -4222,14 +4222,6 @@ Screens.home = (el) => {
           '<span><div class="mt">여행 회화</div><div class="md">듣고 뜻 고르기 · 상황별 문장 만들기 · 🪙 벌기</div></span>' +
           '<span class="arrow">▶</span></button>'
         : "") +
-      '<button class="mode-btn" data-act="go-puzzle">' +
-        '<span class="mi" style="background:#eef2ff">🧩</span>' +
-        '<span><div class="mt">전기 회로 퍼즐</div><div class="md">같은 색을 이어 회로 완성 · 빠르면 🪙 더!</div></span>' +
-        '<span class="arrow">▶</span></button>' +
-      '<button class="mode-btn" data-act="go-showdown">' +
-        '<span class="mi" style="background:#fff0f5">🏆</span>' +
-        '<span><div class="mt">포켓몬 쇼다운</div><div class="md">밀어서 순서 맞추기 · 적은 이동으로 풀면 🪙 더!</div></span>' +
-        '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn adventure' + (ballTotal > 0 ? " pulse" : "") + '" data-act="go-adventure">' +
         '<span class="mi" style="background:#fff3d1">🌿</span>' +
         '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (' + ballTotal + '개)</div></span>' +
@@ -4249,6 +4241,15 @@ Screens.home = (el) => {
         '<span><div class="mt">가족 톡 <span class="chat-badge hidden"></span></div><div class="md">' +
           (Family.linked() ? "가족과 메시지를 주고받아요" : "가족 코드로 함께 모아요 (아이 패드 ↔ 부모 패드)") +
         "</div></span>" +
+        '<span class="arrow">▶</span></button>' +
+      // 쉬어 가는 퍼즐 모드들 — 가족 톡 아래에 모아 둠
+      '<button class="mode-btn" data-act="go-puzzle">' +
+        '<span class="mi" style="background:#eef2ff">🧩</span>' +
+        '<span><div class="mt">전기 회로 퍼즐</div><div class="md">같은 색을 이어 회로 완성 · 빠르면 🪙 더!</div></span>' +
+        '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="go-showdown">' +
+        '<span class="mi" style="background:#fff0f5">🏆</span>' +
+        '<span><div class="mt">포켓몬 쇼다운</div><div class="md">밀어서 순서 맞추기 · 적은 이동으로 풀면 🪙 더!</div></span>' +
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn locked" data-act="mode-locked">' +
         '<span class="mi" style="background:#e8ecf1">🃏</span>' +
