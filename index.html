@@ -826,6 +826,61 @@ body.granny .stamp { font-size: 15px; padding: 10px 15px; }
 .pz-controls { display: flex; gap: 9px; margin-top: 12px; }
 .pz-hint { text-align: center; color: var(--ink-soft); font-size: 12.5px; font-weight: 700; margin-top: 10px; }
 
+/* ===== 포켓몬 쇼다운 (밀어서 순서 맞추기) ===== */
+.sd-card {
+  background: var(--card); border-radius: 20px; box-shadow: var(--shadow);
+  padding: 10px 12px 12px; margin-bottom: 12px; text-align: center;
+}
+.sd-card .sd-card-title { font-size: 13.5px; font-weight: 900; color: var(--ink-soft); margin-bottom: 8px; }
+.sd-mini {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+  max-width: 250px; margin: 0 auto;
+}
+.sd-mini .mc {
+  aspect-ratio: 1 / 1; border-radius: 12px; background: #f3f7fb;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.sd-mini .mc img { width: 88%; height: 88%; object-fit: contain; image-rendering: pixelated; }
+.sd-mini .mc.blank { background: repeating-linear-gradient(45deg, #eef3f8 0 6px, #e3ebf3 6px 12px); }
+.sd-mini .mc .rk { position: absolute; left: 3px; top: 1px; font-size: 11px; font-weight: 900; color: var(--ink-soft); }
+
+.sd-stage {
+  position: relative; border-radius: 22px; padding: 10px;
+  background: linear-gradient(#dff1ff, #f4fbff);
+  box-shadow: var(--shadow); touch-action: manipulation; user-select: none;
+}
+.sd-crowd { text-align: center; font-size: 17px; letter-spacing: 2px; opacity: .55; margin-bottom: 6px; }
+.sd-board { position: relative; width: 100%; aspect-ratio: 3 / 2; }
+.sd-slot {
+  position: absolute; width: 33.333%; height: 50%;
+  padding: 4px; box-sizing: border-box;
+}
+.sd-slot i {
+  display: block; position: relative; width: 100%; height: 100%; border-radius: 14px;
+  background: rgba(255,255,255,.62); box-shadow: inset 0 0 0 2px rgba(45,58,74,.06);
+}
+/* 카드의 자리 번호와 짝을 맞춰 보게 하는 무대 자리 번호 */
+.sd-slot i b { position: absolute; left: 7px; top: 3px; font-size: 12.5px; font-weight: 900; color: rgba(45,58,74,.3); }
+.sd-tile {
+  position: absolute; width: 33.333%; height: 50%; padding: 4px; box-sizing: border-box;
+  border: none; background: none; cursor: pointer;
+  transition: transform .17s cubic-bezier(.34,1.3,.64,1);
+}
+.sd-tile > span {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; border-radius: 14px; background: #fff;
+  box-shadow: 0 3px 8px rgba(45,58,74,.18); font-size: 30px; overflow: hidden;
+}
+.sd-tile img { width: 92%; height: 92%; object-fit: contain; image-rendering: pixelated; }
+.sd-tile.movable > span { box-shadow: 0 3px 8px rgba(45,58,74,.18), 0 0 0 3px var(--accent2); }
+.sd-tile.hintme > span { animation: sdHint .7s ease-in-out infinite; }
+.sd-tile:active > span { transform: scale(.95); }
+.sd-tile.fixed { cursor: default; }
+@keyframes sdHint { 0%,100% { transform: scale(1) } 50% { transform: scale(1.07) } }
+.sd-board.done .sd-tile > span { box-shadow: 0 3px 8px rgba(45,58,74,.18), 0 0 0 3px var(--good); }
+.sd-trophy { text-align: center; font-size: 15px; font-weight: 900; color: var(--ink-soft); margin-top: 8px; }
+body.granny .sd-card .sd-card-title, body.granny .sd-trophy { font-size: 17px; }
+
 /* 가족 톡 / 가족 연결 */
 .chat-badge {
   background: #ff3b30; color: #fff; border-radius: 999px;
@@ -926,6 +981,8 @@ const CONFIG = {
     maxTries: 3,       // 한 문제에 허용하는 시도 횟수 (넘으면 정답을 보여주고 나중에 다시 출제)
   },
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
+  // 포켓몬 쇼다운 — 시간이 아니라 '적은 이동 수'에 보너스 (빨리 누르기보다 생각하기)
+  showdown: { base: 5, perfect: 5, near: 2, nearSlack: 2 },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
@@ -3569,7 +3626,7 @@ const Storage = {
       eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
       chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
-      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0 }, bestCombo: 0, caught: 0, rocketWins: 0 },
+      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0, showdown: 0 }, bestCombo: 0, caught: 0, rocketWins: 0 },
       settings: { sfx: true, tts: true },
       mode: "kid",     // "kid" 아이 | "parent" 부모 | "granny" 할머니(해외여행) — 코인·볼·도감은 공유
       course: "toefl", // 부모 모드 코스: "toefl" | "ielts" (기기별 설정)
@@ -4169,6 +4226,10 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#eef2ff">🧩</span>' +
         '<span><div class="mt">전기 회로 퍼즐</div><div class="md">같은 색을 이어 회로 완성 · 빠르면 🪙 더!</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="go-showdown">' +
+        '<span class="mi" style="background:#fff0f5">🏆</span>' +
+        '<span><div class="mt">포켓몬 쇼다운</div><div class="md">밀어서 순서 맞추기 · 적은 이동으로 풀면 🪙 더!</div></span>' +
+        '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn adventure' + (ballTotal > 0 ? " pulse" : "") + '" data-act="go-adventure">' +
         '<span class="mi" style="background:#fff3d1">🌿</span>' +
         '<span><div class="mt">모험 출발!</div><div class="md">포켓몬을 만나서 볼을 던지자 (' + ballTotal + '개)</div></span>' +
@@ -4339,6 +4400,8 @@ document.addEventListener("click", (e) => {
     case "go-travel": SFX.tap(); Travel.start(); break;
     case "go-puzzle": SFX.tap(); Puzzle.stage = 1; showScreen("puzzle"); break;
     case "puzzle-next": SFX.tap(); closeModal(); Puzzle.stage++; showScreen("puzzle"); break;
+    case "go-showdown": SFX.tap(); Showdown.stage = 1; showScreen("showdown"); break;
+    case "showdown-next": SFX.tap(); closeModal(); Showdown.stage++; showScreen("showdown"); break;
     case "family-create": {
       SFX.tap();
       btn.disabled = true;
@@ -6194,6 +6257,241 @@ Screens.puzzle = (el) => {
 };
 
 /* ================================================================
+   [S15.5] 포켓몬 쇼다운 — 밀어서 순서 맞추기 (슬라이딩 논리 퍼즐)
+   2×3 무대에 포켓몬 5마리 + 빈자리 1칸. 빈자리 옆 포켓몬을 탭하면 밀려 들어간다.
+   순서 카드와 똑같이 맞추면 우승! 최소 이동 수로 풀면 보너스 코인.
+================================================================ */
+const SHOWDOWN_IDS = [25, 132, 143, 133, 54]; // 피카츄 · 메타몽 · 잠만보 · 이브이 · 고라파덕
+const SD_EMOJI = { 25: "⚡", 132: "🟣", 143: "😴", 133: "🐾", 54: "🦆" };
+const SD_COLS = 3, SD_ROWS = 2, SD_N = SD_COLS * SD_ROWS;
+
+// 스프라이트 폴백: 움직이는 GIF → 공식 일러스트 → 이모지
+function sdImgFail(img) {
+  if (!img.dataset.step) { img.dataset.step = "art"; img.src = spriteUrl(img.dataset.mid); return; }
+  img.outerHTML = SD_EMOJI[img.dataset.mid] || "❓";
+}
+
+const Showdown = {
+  stage: 1,
+  board: [], target: [], moves: 0, minMoves: 0, usedHint: false, solved: false, busy: false,
+
+  // 판 번호 → 목표 최소 이동 수 범위 (2×3 슬라이딩 퍼즐의 최대는 21수)
+  params(stage) {
+    const lo = Math.min(15, 3 + (stage - 1) * 3);
+    return { lo, hi: Math.min(21, lo + 2) };
+  },
+
+  key(b) { return b.map(x => x === null ? "_" : x).join(","); },
+  blankOf(b) { return b.indexOf(null); },
+  // 빈자리와 맞닿은 칸들 (상하좌우)
+  neighbors(i) {
+    const r = Math.floor(i / SD_COLS), c = i % SD_COLS, out = [];
+    if (r > 0) out.push(i - SD_COLS);
+    if (r < SD_ROWS - 1) out.push(i + SD_COLS);
+    if (c > 0) out.push(i - 1);
+    if (c < SD_COLS - 1) out.push(i + 1);
+    return out;
+  },
+  slide(b, from) { // from 칸의 포켓몬을 빈자리로 (복사본 반환, 불가면 null)
+    const blank = this.blankOf(b);
+    if (!this.neighbors(blank).includes(from)) return null;
+    const n = b.slice();
+    n[blank] = n[from]; n[from] = null;
+    return n;
+  },
+
+  // 목표까지 최소 몇 수인지 (상태 720개뿐이라 BFS로 정확히 계산) → 첫 최적 수도 알려준다
+  solve(from, goal) {
+    const gk = this.key(goal);
+    if (this.key(from) === gk) return { dist: 0, first: -1 };
+    const seen = { [this.key(from)]: true };
+    let frontier = [{ b: from, first: -1 }], dist = 0;
+    while (frontier.length && dist < 40) {
+      dist++;
+      const next = [];
+      for (const cur of frontier) {
+        for (const from2 of this.neighbors(this.blankOf(cur.b))) {
+          const nb = this.slide(cur.b, from2);
+          const k = this.key(nb);
+          if (seen[k]) continue;
+          seen[k] = true;
+          const first = cur.first < 0 ? from2 : cur.first;
+          if (k === gk) return { dist, first };
+          next.push({ b: nb, first });
+        }
+      }
+      frontier = next;
+    }
+    return { dist: -1, first: -1 };
+  },
+
+  gen(stage) {
+    const p = this.params(stage);
+    const target = shuffle(SHOWDOWN_IDS.concat([null]));
+    // 목표에서 BFS로 배치 720개의 최소 이동 수를 모두 구한 뒤, 이 판 난이도에 맞는 배치를 뽑는다
+    // (거꾸로 섞어 만든 배치라 항상 풀 수 있고, 최소 수도 정확히 안다)
+    const dist = { [this.key(target)]: 0 }, byDist = {};
+    let frontier = [target], d = 0;
+    while (frontier.length) {
+      d++;
+      const next = [];
+      for (const cur of frontier) {
+        for (const from of this.neighbors(this.blankOf(cur))) {
+          const nb = this.slide(cur, from);
+          const k = this.key(nb);
+          if (dist[k] !== undefined) continue;
+          dist[k] = d;
+          (byDist[d] || (byDist[d] = [])).push(nb);
+          next.push(nb);
+        }
+      }
+      frontier = next;
+    }
+    const pool = [];
+    for (let x = p.lo; x <= p.hi; x++) if (byDist[x]) pool.push.apply(pool, byDist[x]);
+    const far = Math.max.apply(null, Object.keys(byDist).map(Number));
+    const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : byDist[far][0];
+    this.board = pick.slice();
+    this.target = target;
+    this.minMoves = dist[this.key(pick)];
+    this.moves = 0; this.usedHint = false; this.solved = false; this.busy = false;
+    SHOWDOWN_IDS.forEach(id => { const pre = new Image(); pre.src = gifUrl(id); });
+  },
+
+  tileHtml(id) {
+    return '<button class="sd-tile" data-sd="' + id + '" aria-label="' + esc(POKEMON_KO[id - 1]) + '">' +
+      '<span><img data-mid="' + id + '" src="' + gifUrl(id) + '" alt="" onerror="sdImgFail(this)"></span></button>';
+  },
+  miniHtml(arr) {
+    return '<div class="sd-mini">' + arr.map((id, i) =>
+      '<div class="mc' + (id === null ? " blank" : "") + '"><span class="rk">' + (i + 1) + "</span>" +
+      (id === null ? "" : '<img data-mid="' + id + '" src="' + gifUrl(id) + '" alt="" onerror="sdImgFail(this)">') +
+      "</div>").join("") + "</div>";
+  },
+
+  place() { // 타일을 현재 칸 위치로 이동 (CSS transition이 슬라이드 연출)
+    this.board.forEach((id, i) => {
+      if (id === null) return;
+      const el = document.querySelector('.sd-tile[data-sd="' + id + '"]');
+      if (!el) return;
+      el.style.transform = "translate(" + (i % SD_COLS) * 100 + "%," + Math.floor(i / SD_COLS) * 100 + "%)";
+    });
+    this.markMovable();
+  },
+  markMovable() {
+    const movable = this.neighbors(this.blankOf(this.board));
+    document.querySelectorAll(".sd-tile").forEach(el => {
+      const at = this.board.indexOf(Number(el.dataset.sd));
+      el.classList.toggle("movable", !this.solved && movable.includes(at));
+      el.classList.remove("hintme");
+    });
+  },
+  updateHud() {
+    const m = $("#sd-moves"), b = $("#sd-board");
+    if (m) m.textContent = "👣 " + this.moves + "수";
+    if (b) b.classList.toggle("done", this.solved);
+  },
+
+  tap(id) {
+    if (this.solved || this.busy) return;
+    const at = this.board.indexOf(id);
+    const next = this.slide(this.board, at);
+    if (!next) { SFX.wrong(); return; } // 빈자리와 안 붙어 있으면 못 움직임
+    this.board = next;
+    this.moves++;
+    SFX.click();
+    this.place();
+    this.updateHud();
+    if (this.key(this.board) === this.key(this.target)) this.win();
+  },
+
+  hint() {
+    if (this.solved || this.busy) return;
+    const sol = this.solve(this.board, this.target);
+    if (sol.first < 0) return;
+    this.usedHint = true;
+    const id = this.board[sol.first];
+    const el = document.querySelector('.sd-tile[data-sd="' + id + '"]');
+    if (el) { el.classList.add("hintme"); later(() => el.classList.remove("hintme"), 2400); }
+    toast("💡 " + POKEMON_KO[id - 1] + josa(POKEMON_KO[id - 1], "을를") + " 빈자리로 밀어 봐요!", 2200);
+    const t = $("#sd-hint-note");
+    if (t) t.textContent = "💡 힌트를 썼어요 (완벽 보너스는 다음 판에!)";
+  },
+
+  win() {
+    if (this.solved) return;
+    this.solved = true;
+    this.busy = true;
+    this.updateHud();
+    this.markMovable();
+    let coins = CONFIG.showdown.base, bonusLine = "";
+    if (!this.usedHint && this.moves <= this.minMoves) {
+      coins += CONFIG.showdown.perfect;
+      bonusLine = "🌟 최소 이동 수(" + this.minMoves + "수)로 완벽하게! <b>+" + CONFIG.showdown.perfect + "</b>";
+    } else if (!this.usedHint && this.moves <= this.minMoves + CONFIG.showdown.nearSlack) {
+      coins += CONFIG.showdown.near;
+      bonusLine = "👍 거의 최단 경로! <b>+" + CONFIG.showdown.near + "</b>";
+    }
+    addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.4);
+    SAVE.stats.gamesPlayed.showdown = (SAVE.stats.gamesPlayed.showdown || 0) + 1;
+    saveNow();
+    SFX.fanfare("rare");
+    fxConfetti(["🏆", "🎉", "✨", "⚡"], 18);
+    const winner = this.target.find(x => x !== null);
+    later(() => showModal(
+      '<div class="m-emoji">🏆🎉</div>' +
+      '<div class="m-title">순서 완성! ' + esc(POKEMON_KO[winner - 1]) + " 우승!</div>" +
+      '<div class="m-text">이동 <b>' + this.moves + "수</b> (최소 " + this.minMoves + "수)<br>" +
+        "기본 보상 <b>+" + CONFIG.showdown.base + "</b>" + (bonusLine ? "<br>" + bonusLine : "") + "</div>" +
+      '<div class="coin-earn">🪙 +' + coins + "</div>" +
+      '<div class="m-btns" style="flex-direction:column;margin-top:14px">' +
+        '<button class="btn green" data-act="showdown-next">🏆 다음 판 (조금 더 어려워요!)</button>' +
+        '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
+      "</div>"
+    ), 700);
+  },
+};
+
+Screens.showdown = (el) => {
+  Showdown.gen(Showdown.stage);
+  el.innerHTML =
+    topbarHtml({ home: true }) +
+    '<div class="pz-head">' +
+      '<span class="chip">🏆 ' + Showdown.stage + "판</span>" +
+      '<span class="chip" id="sd-moves">👣 0수</span>' +
+      '<span class="chip">🎯 최소 ' + Showdown.minMoves + "수</span>" +
+    "</div>" +
+    '<div class="sd-card">' +
+      '<div class="sd-card-title">📋 순서 카드 — 이 순서대로 만들어요!</div>' +
+      Showdown.miniHtml(Showdown.target) +
+    "</div>" +
+    '<div class="sd-stage">' +
+      '<div class="sd-crowd">👏 👏 👏 👏 👏</div>' +
+      '<div class="sd-board" id="sd-board">' +
+        Showdown.board.map((_, i) =>
+          '<div class="sd-slot" style="transform:translate(' + (i % SD_COLS) * 100 + "%," + Math.floor(i / SD_COLS) * 100 + '%)">' +
+          "<i><b>" + (i + 1) + "</b></i></div>").join("") +
+        SHOWDOWN_IDS.map(id => Showdown.tileHtml(id)).join("") +
+      "</div>" +
+      '<div class="sd-trophy">🏆 카드와 <b>같은 번호 자리</b>에 모두 놓으면 우승!</div>' +
+    "</div>" +
+    '<div class="pz-controls">' +
+      '<button class="btn ghost" style="flex:1" id="sd-hint">💡 힌트</button>' +
+      '<button class="btn" style="flex:1" id="sd-new">🔄 새 판</button>' +
+    "</div>" +
+    '<div class="pz-hint" id="sd-hint-note">빈자리 <b>옆</b>에 있는 포켓몬을 누르면 빈자리로 쓱 밀려요!</div>';
+
+  Showdown.place();
+  Showdown.updateHud();
+  $("#sd-board").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-sd]");
+    if (t) Showdown.tap(Number(t.dataset.sd));
+  });
+  $("#sd-hint").addEventListener("click", () => { SFX.tap(); Showdown.hint(); });
+  $("#sd-new").addEventListener("click", () => { SFX.tap(); showScreen("showdown"); });
+};
+
+/* ================================================================
    [S16] 몬스터볼 상점
 ================================================================ */
 Screens.shop = (el) => {
@@ -7110,6 +7408,7 @@ const Family = {
         memory: mx(sa.gamesPlayed && sa.gamesPlayed.memory, sb.gamesPlayed && sb.gamesPlayed.memory),
         puzzle: mx(sa.gamesPlayed && sa.gamesPlayed.puzzle, sb.gamesPlayed && sb.gamesPlayed.puzzle),
         travel: mx(sa.gamesPlayed && sa.gamesPlayed.travel, sb.gamesPlayed && sb.gamesPlayed.travel),
+        showdown: mx(sa.gamesPlayed && sa.gamesPlayed.showdown, sb.gamesPlayed && sb.gamesPlayed.showdown),
       },
     };
     m.partnerHp = {};
