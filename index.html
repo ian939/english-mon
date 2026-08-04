@@ -881,6 +881,35 @@ body.granny .stamp { font-size: 15px; padding: 10px 15px; }
 .sd-trophy { text-align: center; font-size: 15px; font-weight: 900; color: var(--ink-soft); margin-top: 8px; }
 body.granny .sd-card .sd-card-title, body.granny .sd-trophy { font-size: 17px; }
 
+/* 스테이지 고르기 (1~50) */
+.sd-progress {
+  background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 11px 14px; margin-bottom: 14px;
+  font-size: 14px; font-weight: 800; color: var(--ink-soft); text-align: center;
+}
+.sd-progress .progress { margin-bottom: 8px; }
+.sd-band { margin-bottom: 14px; }
+.sd-band-head { font-size: 15px; font-weight: 900; color: var(--ink); margin: 0 4px 7px; }
+.sd-band-head .sd-band-sub { font-size: 12.5px; font-weight: 800; color: var(--ink-soft); margin-left: 4px; }
+.sd-map { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+.sd-stage-btn {
+  position: relative; border: none; cursor: pointer; border-radius: 14px;
+  background: var(--card); box-shadow: var(--shadow); padding: 8px 2px 6px;
+  font-family: var(--font); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.sd-stage-btn .n { font-size: 17px; font-weight: 900; line-height: 1.1; }
+.sd-stage-btn .s { font-size: 12px; line-height: 1; }
+.sd-stage-btn .mv { font-size: 10.5px; font-weight: 800; color: var(--ink-soft); }
+.sd-stage-btn:active { transform: scale(.95); }
+.sd-stage-btn.cleared { background: #e4f8ee; }
+.sd-stage-btn.cleared .n { color: #1c8f5a; }
+.sd-stage-btn.cur { background: #fff6da; box-shadow: var(--shadow), 0 0 0 3px var(--accent2); }
+.sd-stage-btn.locked { background: #eef1f5; color: #9fb0c0; box-shadow: none; }
+.sd-stage-btn.locked .n { color: #9fb0c0; }
+body.granny .sd-map { grid-template-columns: repeat(4, 1fr); }
+body.granny .sd-stage-btn .n { font-size: 20px; }
+
 /* 가족 톡 / 가족 연결 */
 .chat-badge {
   background: #ff3b30; color: #fff; border-radius: 999px;
@@ -981,8 +1010,8 @@ const CONFIG = {
     maxTries: 3,       // 한 문제에 허용하는 시도 횟수 (넘으면 정답을 보여주고 나중에 다시 출제)
   },
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
-  // 포켓몬 쇼다운 — 시간이 아니라 '적은 이동 수'에 보너스 (빨리 누르기보다 생각하기)
-  showdown: { base: 5, perfect: 5, near: 2, nearSlack: 2 },
+  // 포켓몬 쇼다운 — 스테이지 1~50 (진행도는 저장, 코인은 스테이지 최초 클리어에만)
+  showdown: { stages: 50, hintsPerTry: 1 },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
@@ -3638,6 +3667,7 @@ const Storage = {
       partnerHp: {},   // { id: { hp: 0~100, t: 마지막 기술 사용 시각 } } — 24시간 후 전체 회복
       wordStats: {},   // { wordId: { w: 틀린횟수, c: 맞힌횟수 } } — 복습 출제용
       retryWords: [],  // 못 맞히고 넘어간 단어 id — 다음 퀴즈 앞부분에 다시 출제 (기기별, 동기화 안 함)
+      showdownStage: 1, // 포켓몬 쇼다운에서 지금 도전할 스테이지 (1~50) — 깬 스테이지는 다시 코인이 안 나옴
       welcomed: false,
     };
   },
@@ -3664,6 +3694,7 @@ const Storage = {
         wordStats: sanitizeWordStats(data.wordStats || {}),
         partnerHp: sanitizePartnerHp(data.partnerHp || {}),
         retryWords: Array.isArray(data.retryWords) ? data.retryWords.filter(n => typeof n === "number").slice(-30) : [],
+        showdownStage: Math.max(1, Math.min(51, Math.floor(Number(data.showdownStage) || 1))),
         chat: Array.isArray(data.chat) ? data.chat : [],
         // 구버전 저장(카운터 없음) 마이그레이션: 현재 코인·볼을 이 기기 카운터로 이관
         eco: data.eco || (() => {
@@ -4401,8 +4432,15 @@ document.addEventListener("click", (e) => {
     case "go-travel": SFX.tap(); Travel.start(); break;
     case "go-puzzle": SFX.tap(); Puzzle.stage = 1; showScreen("puzzle"); break;
     case "puzzle-next": SFX.tap(); closeModal(); Puzzle.stage++; showScreen("puzzle"); break;
-    case "go-showdown": SFX.tap(); Showdown.stage = 1; showScreen("showdown"); break;
-    case "showdown-next": SFX.tap(); closeModal(); Showdown.stage++; showScreen("showdown"); break;
+    case "go-showdown": SFX.tap(); closeModal(); showScreen("showdown"); break;
+    case "showdown-play":
+      SFX.tap(); closeModal();
+      showScreen("showdownPlay", { stage: Number(btn.dataset.stage) || Showdown.nextStage() });
+      break;
+    case "showdown-locked":
+      SFX.tap();
+      toast("🔒 앞 스테이지를 먼저 깨야 열려요! (지금은 스테이지 " + Showdown.nextStage() + ")", 2200);
+      break;
     case "family-create": {
       SFX.tap();
       btn.disabled = true;
@@ -6272,15 +6310,34 @@ function sdImgFail(img) {
   img.outerHTML = SD_EMOJI[img.dataset.mid] || "❓";
 }
 
+// 스테이지 1~50을 5구간으로 — 구간마다 목표 최소 이동 수와 코인이 다르다
+const SD_BANDS = [
+  { to: 10, label: "쉬움",        emoji: "🌱", coin: 3,  lo: 2,  hi: 5  },
+  { to: 20, label: "조금 쉬움",   emoji: "🍀", coin: 5,  lo: 6,  hi: 9  },
+  { to: 30, label: "중간",        emoji: "⭐", coin: 7,  lo: 10, hi: 13 },
+  { to: 40, label: "어려움",      emoji: "🔥", coin: 10, lo: 14, hi: 17 },
+  { to: 50, label: "매우 어려움", emoji: "💎", coin: 15, lo: 18, hi: 21 },
+];
+
 const Showdown = {
   stage: 1,
-  board: [], target: [], moves: 0, minMoves: 0, usedHint: false, solved: false, busy: false,
+  board: [], target: [], moves: 0, minMoves: 0, hintsLeft: 0, solved: false, busy: false,
 
-  // 판 번호 → 목표 최소 이동 수 범위 (2×3 슬라이딩 퍼즐의 최대는 21수)
-  params(stage) {
-    const lo = Math.min(15, 3 + (stage - 1) * 3);
-    return { lo, hi: Math.min(21, lo + 2) };
+  bandOf(stage) { return SD_BANDS.find(b => stage <= b.to) || SD_BANDS[SD_BANDS.length - 1]; },
+  bandFrom(band) { const i = SD_BANDS.indexOf(band); return i <= 0 ? 1 : SD_BANDS[i - 1].to + 1; },
+  // 스테이지 → 목표 최소 이동 수 (구간 안에서 고르게 올라감 · 2×3 퍼즐의 최대는 21수)
+  movesFor(stage) {
+    const band = this.bandOf(stage), from = this.bandFrom(band);
+    const span = Math.max(1, band.to - from);
+    return Math.round(band.lo + (Math.min(band.to, stage) - from) / span * (band.hi - band.lo));
   },
+  // 진행도: SAVE.showdownStage 는 1~51 (51 = 50스테이지 전부 클리어)
+  raw() { return Math.max(1, Math.min(CONFIG.showdown.stages + 1, SAVE.showdownStage || 1)); },
+  nextStage() { return Math.min(CONFIG.showdown.stages, this.raw()); }, // 지금 도전할 스테이지
+  clearedCount() { return this.raw() - 1; },
+  isCleared(stage) { return stage < this.raw(); },
+  isOpen(stage) { return stage <= this.nextStage(); },       // 잠기지 않은 스테이지
+  allCleared() { return this.raw() > CONFIG.showdown.stages; },
 
   key(b) { return b.map(x => x === null ? "_" : x).join(","); },
   blankOf(b) { return b.indexOf(null); },
@@ -6327,7 +6384,7 @@ const Showdown = {
   },
 
   gen(stage) {
-    const p = this.params(stage);
+    const want = this.movesFor(stage);
     const target = shuffle(SHOWDOWN_IDS.concat([null]));
     // 목표에서 BFS로 배치 720개의 최소 이동 수를 모두 구한 뒤, 이 판 난이도에 맞는 배치를 뽑는다
     // (거꾸로 섞어 만든 배치라 항상 풀 수 있고, 최소 수도 정확히 안다)
@@ -6348,14 +6405,16 @@ const Showdown = {
       }
       frontier = next;
     }
-    const pool = [];
-    for (let x = p.lo; x <= p.hi; x++) if (byDist[x]) pool.push.apply(pool, byDist[x]);
-    const far = Math.max.apply(null, Object.keys(byDist).map(Number));
-    const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : byDist[far][0];
+    // 이 스테이지의 목표 수와 정확히 같은 배치 중에서 뽑기 (없으면 가장 가까운 수로)
+    let pool = byDist[want];
+    for (let w = 1; !pool && w <= 21; w++) pool = byDist[want - w] || byDist[want + w];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    this.stage = stage;
     this.board = pick.slice();
     this.target = target;
     this.minMoves = dist[this.key(pick)];
-    this.moves = 0; this.usedHint = false; this.solved = false; this.busy = false;
+    this.moves = 0; this.solved = false; this.busy = false;
+    this.hintsLeft = CONFIG.showdown.hintsPerTry;
     SHOWDOWN_IDS.forEach(id => { const pre = new Image(); pre.src = gifUrl(id); });
   },
 
@@ -6408,15 +6467,16 @@ const Showdown = {
 
   hint() {
     if (this.solved || this.busy) return;
+    if (this.hintsLeft <= 0) { toast("💡 힌트는 스테이지마다 " + CONFIG.showdown.hintsPerTry + "번만 쓸 수 있어요!", 2000); return; }
     const sol = this.solve(this.board, this.target);
     if (sol.first < 0) return;
-    this.usedHint = true;
+    this.hintsLeft--;
     const id = this.board[sol.first];
     const el = document.querySelector('.sd-tile[data-sd="' + id + '"]');
     if (el) { el.classList.add("hintme"); later(() => el.classList.remove("hintme"), 2400); }
-    toast("💡 " + POKEMON_KO[id - 1] + josa(POKEMON_KO[id - 1], "을를") + " 빈자리로 밀어 봐요!", 2200);
-    const t = $("#sd-hint-note");
-    if (t) t.textContent = "💡 힌트를 썼어요 (완벽 보너스는 다음 판에!)";
+    toast("💡 " + josa(POKEMON_KO[id - 1], "을를") + " 빈자리로 밀어 봐요!", 2200);
+    const btn = $("#sd-hint");
+    if (btn && this.hintsLeft <= 0) { btn.disabled = true; btn.textContent = "💡 힌트 다 썼어요"; }
   },
 
   win() {
@@ -6425,42 +6485,86 @@ const Showdown = {
     this.busy = true;
     this.updateHud();
     this.markMovable();
-    let coins = CONFIG.showdown.base, bonusLine = "";
-    if (!this.usedHint && this.moves <= this.minMoves) {
-      coins += CONFIG.showdown.perfect;
-      bonusLine = "🌟 최소 이동 수(" + this.minMoves + "수)로 완벽하게! <b>+" + CONFIG.showdown.perfect + "</b>";
-    } else if (!this.usedHint && this.moves <= this.minMoves + CONFIG.showdown.nearSlack) {
-      coins += CONFIG.showdown.near;
-      bonusLine = "👍 거의 최단 경로! <b>+" + CONFIG.showdown.near + "</b>";
+    const band = this.bandOf(this.stage);
+    const first = this.stage === this.nextStage() && !this.isCleared(this.stage); // 이 스테이지 최초 클리어?
+    const last = first && this.stage >= CONFIG.showdown.stages;
+    let rewardLine;
+    if (first) {
+      SAVE.showdownStage = Math.min(CONFIG.showdown.stages + 1, this.stage + 1); // 다음 스테이지 해금
+      addCoins(band.coin, window.innerWidth / 2, window.innerHeight * 0.4);
+      rewardLine = band.emoji + " " + band.label + " 스테이지 클리어 보상 <b>+" + band.coin + "</b>";
+    } else {
+      rewardLine = "🔁 이미 깬 스테이지라 코인은 없어요 (연습은 언제든 자유!)";
     }
-    addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.4);
     SAVE.stats.gamesPlayed.showdown = (SAVE.stats.gamesPlayed.showdown || 0) + 1;
     saveNow();
-    SFX.fanfare("rare");
-    fxConfetti(["🏆", "🎉", "✨", "⚡"], 18);
+    SFX.fanfare(last ? "legendary" : "rare");
+    fxConfetti(last ? ["👑", "🏆", "🎊", "✨"] : ["🏆", "🎉", "✨", "⚡"], last ? 26 : 18);
     const winner = this.target.find(x => x !== null);
+    const hasNext = this.stage < CONFIG.showdown.stages;
     later(() => showModal(
-      '<div class="m-emoji">🏆🎉</div>' +
-      '<div class="m-title">순서 완성! ' + esc(POKEMON_KO[winner - 1]) + " 우승!</div>" +
-      '<div class="m-text">이동 <b>' + this.moves + "수</b> (최소 " + this.minMoves + "수)<br>" +
-        "기본 보상 <b>+" + CONFIG.showdown.base + "</b>" + (bonusLine ? "<br>" + bonusLine : "") + "</div>" +
-      '<div class="coin-earn">🪙 +' + coins + "</div>" +
+      '<div class="m-emoji">' + (last ? "👑🎊" : "🏆🎉") + "</div>" +
+      '<div class="m-title">' + (last ? "50 스테이지 전부 완주!" : "스테이지 " + this.stage + " 클리어!") + "</div>" +
+      '<div class="m-text">' + esc(POKEMON_KO[winner - 1]) + " 우승! · 이동 <b>" + this.moves + "수</b> (최소 " + this.minMoves + "수)<br>" +
+        rewardLine + (last ? "<br>포켓몬 쇼다운 챔피언이에요! 👑" : "") + "</div>" +
+      (first ? '<div class="coin-earn">🪙 +' + band.coin + "</div>" : "") +
       '<div class="m-btns" style="flex-direction:column;margin-top:14px">' +
-        '<button class="btn green" data-act="showdown-next">🏆 다음 판 (조금 더 어려워요!)</button>' +
+        (hasNext && first
+          ? '<button class="btn green" data-act="showdown-play" data-stage="' + (this.stage + 1) + '">▶ 스테이지 ' + (this.stage + 1) + " 도전!</button>"
+          : "") +
+        '<button class="btn purple" data-act="go-showdown">🗺️ 스테이지 고르기</button>' +
         '<button class="btn ghost" data-act="modal-home">🏠 홈으로</button>' +
       "</div>"
     ), 700);
   },
 };
 
+// 스테이지 고르기 (1~50) — 진행도는 저장되고, 깬 스테이지는 연습만 가능
 Screens.showdown = (el) => {
-  Showdown.gen(Showdown.stage);
+  const next = Showdown.nextStage();
+  const done = Showdown.clearedCount();
+  el.innerHTML =
+    topbarHtml({ home: true }) +
+    '<div class="page-title">🏆 포켓몬 쇼다운</div>' +
+    '<div class="sd-progress">' +
+      '<div class="progress"><i style="width:' + Math.round(done / CONFIG.showdown.stages * 100) + '%"></i></div>' +
+      "<div>클리어 <b>" + done + " / " + CONFIG.showdown.stages + "</b>" +
+      (Showdown.allCleared() ? " · 전부 완주! 👑" : " · 다음은 스테이지 <b>" + next + "</b>") + "</div>" +
+    "</div>" +
+    SD_BANDS.map(band => {
+      const from = Showdown.bandFrom(band);
+      let cells = "";
+      for (let s = from; s <= band.to; s++) {
+        const cleared = Showdown.isCleared(s), open = Showdown.isOpen(s), cur = s === next && !cleared;
+        cells += '<button class="sd-stage-btn' + (cleared ? " cleared" : "") + (cur ? " cur" : "") + (open ? "" : " locked") + '"' +
+          (open ? ' data-act="showdown-play" data-stage="' + s + '"' : ' data-act="showdown-locked"') + ">" +
+          '<span class="n">' + s + "</span>" +
+          '<span class="s">' + (cleared ? "⭐" : open ? "▶" : "🔒") + "</span>" +
+          (open ? '<span class="mv">' + Showdown.movesFor(s) + "수</span>" : "") +
+          "</button>";
+      }
+      return '<div class="sd-band">' +
+        '<div class="sd-band-head">' + band.emoji + " <b>" + band.label + "</b> " +
+          '<span class="sd-band-sub">' + from + "~" + band.to + " · 클리어 🪙 " + band.coin + "</span></div>" +
+        '<div class="sd-map">' + cells + "</div></div>";
+    }).join("") +
+    '<div class="pz-hint">스테이지를 깨면 다음 스테이지가 열려요. 이미 깬 스테이지는 연습만 (코인 없음)</div>';
+};
+
+Screens.showdownPlay = (el, params) => {
+  const want = Math.max(1, Math.min(CONFIG.showdown.stages, Number(params && params.stage) || Showdown.nextStage()));
+  const stage = Showdown.isOpen(want) ? want : Showdown.nextStage(); // 잠긴 스테이지는 못 들어감
+  Showdown.gen(stage);
+  const band = Showdown.bandOf(stage);
+  const cleared = Showdown.isCleared(stage);
   el.innerHTML =
     topbarHtml({ home: true }) +
     '<div class="pz-head">' +
-      '<span class="chip">🏆 ' + Showdown.stage + "판</span>" +
+      '<span class="chip">🏆 스테이지 ' + stage + "</span>" +
+      '<span class="chip">' + band.emoji + " " + band.label + "</span>" +
       '<span class="chip" id="sd-moves">👣 0수</span>' +
       '<span class="chip">🎯 최소 ' + Showdown.minMoves + "수</span>" +
+      '<span class="chip">' + (cleared ? "🔁 연습" : "🪙 " + band.coin) + "</span>" +
     "</div>" +
     '<div class="sd-card">' +
       '<div class="sd-card-title">📋 순서 카드 — 이 순서대로 만들어요!</div>' +
@@ -6477,8 +6581,9 @@ Screens.showdown = (el) => {
       '<div class="sd-trophy">🏆 카드와 <b>같은 번호 자리</b>에 모두 놓으면 우승!</div>' +
     "</div>" +
     '<div class="pz-controls">' +
-      '<button class="btn ghost" style="flex:1" id="sd-hint">💡 힌트</button>' +
-      '<button class="btn" style="flex:1" id="sd-new">🔄 새 판</button>' +
+      '<button class="btn ghost" style="flex:1" id="sd-hint">💡 힌트 (' + CONFIG.showdown.hintsPerTry + "번)</button>" +
+      '<button class="btn ghost" style="flex:1" id="sd-retry">🔄 다시 섞기</button>' +
+      '<button class="btn" style="flex:1" data-act="go-showdown">🗺️ 스테이지</button>' +
     "</div>" +
     '<div class="pz-hint" id="sd-hint-note">빈자리 <b>옆</b>에 있는 포켓몬을 누르면 빈자리로 쓱 밀려요!</div>';
 
@@ -6489,7 +6594,7 @@ Screens.showdown = (el) => {
     if (t) Showdown.tap(Number(t.dataset.sd));
   });
   $("#sd-hint").addEventListener("click", () => { SFX.tap(); Showdown.hint(); });
-  $("#sd-new").addEventListener("click", () => { SFX.tap(); showScreen("showdown"); });
+  $("#sd-retry").addEventListener("click", () => { SFX.tap(); showScreen("showdownPlay", { stage: stage }); });
 };
 
 /* ================================================================
@@ -7342,6 +7447,7 @@ const Family = {
       updatedAt: Date.now(),
       eco: SAVE.eco, pokedex: SAVE.pokedex, wordStats: SAVE.wordStats,
       stats: SAVE.stats, partnerHp: SAVE.partnerHp, partner: SAVE.partner, dexGen: SAVE.dexGen || 1,
+      showdownStage: SAVE.showdownStage || 1,
       chat: SAVE.chat || [],
     };
   },
@@ -7419,6 +7525,7 @@ const Family = {
     });
     m.partner = ((a.updatedAt || 0) >= (b.updatedAt || 0) ? (a.partner || b.partner) : (b.partner || a.partner)) || null;
     m.dexGen = mx(a.dexGen, b.dexGen) || 1; // 해금 지역은 더 앞선 쪽으로
+    m.showdownStage = mx(a.showdownStage, b.showdownStage) || 1; // 쇼다운 진행도도 더 앞선 쪽으로
     const seen = new Set();
     const chat = [];
     (a.chat || []).concat(b.chat || []).forEach(msg => {
@@ -7439,6 +7546,7 @@ const Family = {
     SAVE.partnerHp = m.partnerHp;
     SAVE.partner = m.partner;
     SAVE.dexGen = Math.max(1, Math.min(GENERATIONS.length, m.dexGen || 1));
+    SAVE.showdownStage = Math.max(1, Math.min(CONFIG.showdown.stages + 1, m.showdownStage || 1));
     SAVE.chat = m.chat;
     applyEco();
     Storage.save(SAVE); // saveNow()는 queueSync를 또 부르므로 직접 저장
