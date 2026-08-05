@@ -1066,6 +1066,7 @@ const CONFIG = {
     coin1: 1, coin2: 2,           // 완성 보상 (1단계 글자 1개 / 2단계 단어 1개)
     comboEvery: 5, comboBonus: 3, // 실수 없이 연속 5번마다 보너스 코인
     tol: 11, offMax: 17,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계)
+    stallMax: 26,                 // 전진 없이 이만큼 움직이면 "방향이 반대"로 안내
   },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
@@ -6765,6 +6766,7 @@ function samplePts(pts, step) {
 const Trace = {
   stage: 1, list: [], item: null, letters: [], li: 0, char: "",
   raw: [], strokes: [], si: 0, ci: 0, drawing: false, missed: false, ink: [], done: false,
+  stall: 0, lastP: null,
 
   // 2단계용 단어: 아이 단어에서 3~4글자 + 모두 획 데이터가 있는 것
   words() {
@@ -6808,6 +6810,7 @@ const Trace = {
     this.raw = GLYPHS[this.char] || GLYPHS.l;
     this.strokes = this.raw.map(pts => samplePts(pts, 4.5));
     this.si = 0; this.ci = 0; this.ink = []; this.drawing = false; this.done = false;
+    this.stall = 0; this.lastP = null;
   },
 
   // 문제 전체(프롬프트 + 획판) 그리기
@@ -6837,7 +6840,8 @@ const Trace = {
     this.bind($("#tr-pad"));
     later(() => this.say(), 300);
   },
-  say() { TTS.speak(this.stage === 2 ? this.item.en : this.char); },
+  // 대문자를 그대로 넘기면 "capital Q"처럼 읽는 음성이 있어 소문자로 보낸다 (글자 이름은 같음)
+  say() { TTS.speak(this.stage === 2 ? this.item.en : this.char.toLowerCase()); },
 
   renderPad() {
     const pad = $("#tr-pad");
@@ -6855,10 +6859,19 @@ const Trace = {
       // 아직 안 그은 획: 점선 + 시작 번호 + 끝 화살표
       const cur = i === this.si;
       hints += '<path class="tr-dash' + (cur ? " cur" : "") + '" d="' + d + '"/>';
-      const s = pts[0], e = pts[pts.length - 1], p2 = pts[pts.length - 2] || s;
-      const ang = Math.atan2(e[1] - p2[1], e[0] - p2[0]) * 180 / Math.PI;
-      hints += '<polygon class="tr-arrow" points="0,-4 8,0 0,4" transform="translate(' +
-        e[0] + "," + e[1] + ") rotate(" + ang.toFixed(1) + ')"/>';
+      // 진행 방향 화살표 — 닫힌 원(O·Q·o처럼 시작=끝)은 끝 화살표가 ① 배지에 겹치므로
+      // 길 중간(40%·80%)에 찍어서 어느 쪽으로 돌아야 하는지 항상 보이게 한다
+      const cps = this.strokes[i];
+      const s = pts[0], e = pts[pts.length - 1];
+      const closed = Math.hypot(e[0] - s[0], e[1] - s[1]) < 6;
+      const marks = closed ? [0.3, 0.6, 0.9] : [0.45, 1];
+      marks.forEach(f => {
+        const k = Math.min(cps.length - 1, Math.max(1, Math.round((cps.length - 1) * f)));
+        const a = cps[k - 1], bb = cps[k];
+        const ang = Math.atan2(bb[1] - a[1], bb[0] - a[0]) * 180 / Math.PI;
+        hints += '<polygon class="tr-arrow" points="0,-4 8,0 0,4" transform="translate(' +
+          bb[0].toFixed(1) + "," + bb[1].toFixed(1) + ") rotate(" + ang.toFixed(1) + ')"/>';
+      });
       hints += '<circle class="tr-num' + (cur ? " cur" : "") + '" cx="' + s[0] + '" cy="' + s[1] + '" r="8"/>' +
         '<text class="tr-numt" x="' + s[0] + '" y="' + s[1] + '">' + (i + 1) + "</text>";
       if (cur) hints += '<circle class="tr-start" cx="' + s[0] + '" cy="' + s[1] + '" r="12"/>';
@@ -6884,6 +6897,7 @@ const Trace = {
       if (this.near(p, cps[0]) > CONFIG.trace.tol * 1.5) { this.nudge("① 번 동그라미에서 출발해요!"); return; }
       pad.setPointerCapture(e.pointerId);
       this.drawing = true; this.ci = 1; this.ink = [cps[0].slice(), p];
+      this.stall = 0; this.lastP = p;
       SFX.click();
       this.renderPad();
     });
@@ -6896,7 +6910,15 @@ const Trace = {
       let best = Infinity;
       for (let i = 0; i < cps.length; i++) best = Math.min(best, this.near(p, cps[i]));
       if (best > CONFIG.trace.offMax) { this.fail("점선을 따라가 볼까요? 다시 ① 부터!"); return; }
+      // 반대 방향으로 돌면(O·Q처럼 닫힌 원에서 자주 생김) 다음 체크포인트가 계속 안 열린다
+      // → 전진 없이 움직인 거리가 쌓이면 방향을 알려주고 그 획만 다시
+      const before = this.ci;
       while (this.ci < cps.length && this.near(p, cps[this.ci]) <= CONFIG.trace.tol) this.ci++;
+      if (this.ci > before) { this.stall = 0; } else {
+        this.stall += this.near(p, this.lastP || p);
+        if (this.stall > CONFIG.trace.stallMax) { this.fail("화살표 방향으로 그어요! ① 부터 다시 해 볼까요?"); return; }
+      }
+      this.lastP = p;
       this.ink.push(p);
       if (this.ink.length % 2 === 0) this.renderPad();
       if (this.ci >= cps.length) this.strokeDone();
@@ -6922,7 +6944,7 @@ const Trace = {
     this.drawing = false;
     this.missed = true;
     breakCombo();
-    this.ci = 0; this.ink = [];
+    this.ci = 0; this.ink = []; this.stall = 0; this.lastP = null;
     this.renderPad();
     this.nudge(msg);
   },
@@ -6930,7 +6952,7 @@ const Trace = {
   strokeDone() {
     this.drawing = false;
     this.si++;
-    this.ink = [];
+    this.ink = []; this.stall = 0; this.lastP = null;
     SFX.correct();
     if (this.si >= this.strokes.length) { this.charDone(); return; }
     this.renderPad();
