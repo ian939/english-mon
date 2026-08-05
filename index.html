@@ -955,8 +955,9 @@ body.granny .sd-stage-btn .n { font-size: 20px; }
 .tr-pad svg { display: block; width: 100%; height: 100%; }
 .tr-pad.shake { animation: shake .4s ease; }
 /* 공책 줄 — 글자가 어디에 앉는지 보이게 (윗줄 · 중간 점선 · 밑줄 · 아랫줄) */
-.tr-rule { stroke: #e3ebf3; stroke-width: 1; }
+.tr-rule { stroke: #e3ebf3; stroke-width: 1; fill: none; }
 .tr-rule.mid { stroke-dasharray: 3 3; }
+.tr-rule.box { stroke: #dbe6f0; stroke-width: 1.4; }
 .tr-rule.base { stroke: #c9d8e6; stroke-width: 1.8; }
 .tr-guide { stroke: #e9eff6; stroke-width: 15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .tr-dash {
@@ -3876,10 +3877,12 @@ const SFX = {
 const TTS = {
   ok: "speechSynthesis" in window,
   voice: null,
+  koVoice: null,
   pickVoice() {
     if (!this.ok) return;
     const vs = speechSynthesis.getVoices();
     if (!vs.length) return;
+    this.koVoice = vs.find(v => v.lang && v.lang.toLowerCase().indexOf("ko") === 0) || null;
     this.voice =
       vs.find(v => v.lang === "en-US" && /Google|Microsoft/i.test(v.name)) ||
       vs.find(v => v.lang === "en-US") ||
@@ -3895,6 +3898,20 @@ const TTS = {
       if (this.voice) u.voice = this.voice;
       u.rate = rate || speakRate(); // 할머니 모드는 더 천천히
       u.pitch = 1.05;
+      speechSynthesis.speak(u);
+      return true;
+    } catch (e) { return false; }
+  },
+  // 한글 단어 읽어주기 (한국어 목소리가 있을 때만)
+  koOk() { return !!(this.ok && this.koVoice && SAVE.settings.tts); },
+  speakKo(text) {
+    if (!this.koOk()) return false;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ko-KR";
+      u.voice = this.koVoice;
+      u.rate = 0.85;
       speechSynthesis.speak(u);
       return true;
     } catch (e) { return false; }
@@ -4326,7 +4343,7 @@ Screens.home = (el) => {
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn" data-act="go-trace">' +
         '<span class="mi" style="background:#eaf7ee">✍️</span>' +
-        '<span><div class="mt">알파벳 쓰기</div><div class="md">획 순서대로 따라 쓰기 · 글자/단어 · 🪙 벌기</div></span>' +
+        '<span><div class="mt">글자 쓰기 (알파벳·한글)</div><div class="md">획 순서대로 따라 쓰기 · 글자/단어 · 🪙 벌기</div></span>' +
         '<span class="arrow">▶</span></button>' +
       (isGranny()
         ? '<button class="mode-btn" data-act="go-travel">' +
@@ -6751,6 +6768,96 @@ const GLYPHS = {
   z: [[[32,46],[68,46]], [[68,46],[32,86]], [[32,86],[68,86]]],
 };
 
+/* ---- 한글: 자모 획 데이터 + 음절 조합 ----
+   자모를 0~100 상자에 그려 두고, 음절 짜임새(가로모음/세로모음/받침)에 따라
+   자리(cho/jung/jong)로 옮겨 붙인다. 획 순서는 초성 → 중성 → 종성. */
+const JAMO = {
+  ㄱ: [[[10,14],[88,14],[72,92]]],
+  ㄴ: [[[16,10],[16,86],[90,86]]],
+  ㄷ: [[[12,14],[88,14]], [[12,14],[12,86],[88,86]]],
+  ㄹ: [[[12,14],[84,14],[70,46]], [[16,46],[84,46]], [[16,46],[16,86],[84,86]]],
+  ㅁ: [[[14,12],[14,88]], [[14,12],[86,12],[86,88]], [[14,88],[86,88]]],
+  ㅂ: [[[16,10],[16,90]], [[84,10],[84,90]], [[16,52],[84,52]], [[16,90],[84,90]]],
+  ㅅ: [[[50,12],[14,90]], [[54,36],[88,90]]],
+  ㅇ: [arcPts(50,50,38,38,-90,-450)],
+  ㅈ: [[[10,16],[90,16]], [[50,16],[14,90]], [[54,40],[88,90]]],
+  ㅊ: [[[36,6],[64,6]], [[10,28],[90,28]], [[50,28],[14,92]], [[54,50],[88,92]]],
+  ㅋ: [[[10,14],[88,14],[72,92]], [[30,52],[86,52]]],
+  ㅌ: [[[12,14],[88,14]], [[12,14],[12,86],[88,86]], [[12,50],[88,50]]],
+  ㅍ: [[[8,22],[92,22]], [[28,22],[28,80]], [[72,22],[72,80]], [[8,80],[92,80]]],
+  ㅎ: [[[36,6],[64,6]], [[14,26],[86,26]], arcPts(50,64,30,30,-90,-450)],
+  ㅏ: [[[30,6],[30,94]], [[30,50],[86,50]]],
+  ㅑ: [[[30,6],[30,94]], [[30,32],[86,32]], [[30,68],[86,68]]],
+  ㅓ: [[[14,50],[70,50]], [[70,6],[70,94]]],
+  ㅕ: [[[14,32],[70,32]], [[14,68],[70,68]], [[70,6],[70,94]]],
+  ㅗ: [[[50,10],[50,60]], [[8,60],[92,60]]],
+  ㅛ: [[[32,10],[32,60]], [[68,10],[68,60]], [[8,60],[92,60]]],
+  ㅜ: [[[8,40],[92,40]], [[50,40],[50,92]]],
+  ㅠ: [[[8,40],[92,40]], [[32,40],[32,92]], [[68,40],[68,92]]],
+  ㅡ: [[[8,50],[92,50]]],
+  ㅣ: [[[50,6],[50,94]]],
+  ㅐ: [[[24,6],[24,94]], [[24,50],[66,50]], [[80,6],[80,94]]],
+  ㅒ: [[[24,6],[24,94]], [[24,32],[66,32]], [[24,68],[66,68]], [[80,6],[80,94]]],
+  ㅔ: [[[14,50],[52,50]], [[52,6],[52,94]], [[80,6],[80,94]]],
+  ㅖ: [[[14,32],[52,32]], [[14,68],[52,68]], [[52,6],[52,94]], [[80,6],[80,94]]],
+  ㅘ: [[[26,14],[26,52]], [[4,52],[50,52]], [[68,6],[68,94]], [[68,50],[96,50]]],
+  ㅙ: [[[24,14],[24,52]], [[2,52],[46,52]], [[62,6],[62,94]], [[62,50],[82,50]], [[92,6],[92,94]]],
+  ㅚ: [[[26,14],[26,52]], [[4,52],[50,52]], [[74,6],[74,94]]],
+  ㅝ: [[[4,40],[50,40]], [[26,40],[26,92]], [[62,50],[88,50]], [[88,6],[88,94]]],
+  ㅞ: [[[4,40],[46,40]], [[24,40],[24,92]], [[60,50],[78,50]], [[78,6],[78,94]], [[92,6],[92,94]]],
+  ㅟ: [[[4,40],[50,40]], [[26,40],[26,92]], [[74,6],[74,94]]],
+  ㅢ: [[[6,50],[62,50]], [[78,6],[78,94]]],
+};
+// 쌍자음·겹받침은 기본 자모 두 개를 나란히 (따로 그리지 않아도 모양이 맞는다)
+const JAMO_PAIR = {
+  ㄲ: ["ㄱ","ㄱ"], ㄸ: ["ㄷ","ㄷ"], ㅃ: ["ㅂ","ㅂ"], ㅆ: ["ㅅ","ㅅ"], ㅉ: ["ㅈ","ㅈ"],
+  ㄳ: ["ㄱ","ㅅ"], ㄵ: ["ㄴ","ㅈ"], ㄶ: ["ㄴ","ㅎ"], ㄺ: ["ㄹ","ㄱ"], ㄻ: ["ㄹ","ㅁ"],
+  ㄼ: ["ㄹ","ㅂ"], ㄽ: ["ㄹ","ㅅ"], ㄾ: ["ㄹ","ㅌ"], ㄿ: ["ㄹ","ㅍ"], ㅀ: ["ㄹ","ㅎ"], ㅄ: ["ㅂ","ㅅ"],
+};
+const KO_CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ".split("");
+const KO_JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ".split("");
+const KO_JONG = ["","ㄱ","ㄲ","ㄳ","ㄴ","ㄵ","ㄶ","ㄷ","ㄹ","ㄺ","ㄻ","ㄼ","ㄽ","ㄾ","ㄿ","ㅀ","ㅁ","ㅂ","ㅄ","ㅅ","ㅆ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+const KO_FLAT = "ㅗㅛㅜㅠㅡ";           // 가로모음 (초성이 위, 모음이 아래)
+const KO_MIX = "ㅘㅙㅚㅝㅞㅟㅢ";        // 섞임모음 (모음이 상자 전체를 감싼다)
+// 음절 짜임새별 자리 [x0,y0,x1,y1]
+const KO_BOX = {
+  V:  { cho: [4,8,54,92],  jung: [54,4,96,96] },
+  Vb: { cho: [4,4,52,58],  jung: [52,2,96,60], jong: [14,60,86,97] },
+  H:  { cho: [20,6,80,50], jung: [4,50,96,94] },
+  Hb: { cho: [24,2,76,34], jung: [4,34,96,66], jong: [24,64,76,97] },
+  C:  { cho: [6,4,50,46],  jung: [2,2,98,97] },
+  Cb: { cho: [6,2,48,38],  jung: [2,0,98,72], jong: [20,68,80,97] },
+};
+function fitStrokes(strokes, b) {
+  const [x0, y0, x1, y1] = b;
+  return strokes.map(st => st.map(p => [
+    +(x0 + p[0] / 100 * (x1 - x0)).toFixed(1),
+    +(y0 + p[1] / 100 * (y1 - y0)).toFixed(1),
+  ]));
+}
+function jamoStrokes(j, b) {
+  const pair = JAMO_PAIR[j];
+  if (pair) { // 나란히 두 개
+    const w = (b[2] - b[0]), gap = w * 0.05, mid = b[0] + w / 2;
+    return fitStrokes(JAMO[pair[0]] || [], [b[0], b[1], mid - gap, b[3]])
+      .concat(fitStrokes(JAMO[pair[1]] || [], [mid + gap, b[1], b[2], b[3]]));
+  }
+  return fitStrokes(JAMO[j] || [], b);
+}
+// 한글 한 글자 → 획 목록 (초성 → 중성 → 종성 순서)
+function hangulStrokes(ch) {
+  const code = ch.charCodeAt(0) - 0xAC00;
+  if (code < 0 || code > 11171) return GLYPHS[ch] || [];
+  const cho = KO_CHO[Math.floor(code / 588)];
+  const jung = KO_JUNG[Math.floor((code % 588) / 28)];
+  const jong = KO_JONG[code % 28];
+  const type = KO_MIX.indexOf(jung) >= 0 ? "C" : KO_FLAT.indexOf(jung) >= 0 ? "H" : "V";
+  const box = KO_BOX[type + (jong ? "b" : "")];
+  let out = jamoStrokes(cho, box.cho).concat(jamoStrokes(jung, box.jung));
+  if (jong) out = out.concat(jamoStrokes(jong, box.jong));
+  return out;
+}
+
 // 꺾이지 않게 부드러운 곡선으로 (Catmull-Rom → 베지어)
 function smoothD(pts) {
   if (pts.length < 3) return "M" + pts.map(p => p[0] + " " + p[1]).join(" L ");
@@ -6784,6 +6891,36 @@ function samplePts(pts, step) {
   return out;
 }
 
+// 초등 저학년 한글 단어 200개 (1~3글자) — 3단계에서 랜덤 출제
+const KO_WORDS = [
+  ["강아지","🐶"],["고양이","🐱"],["토끼","🐰"],["사자","🦁"],["호랑이","🐯"],["코끼리","🐘"],["곰","🐻"],["돼지","🐷"],
+  ["소","🐮"],["말","🐴"],["양","🐑"],["원숭이","🐵"],["여우","🦊"],["늑대","🐺"],["다람쥐","🐿️"],["사슴","🦌"],
+  ["기린","🦒"],["하마","🦛"],["악어","🐊"],["뱀","🐍"],["개구리","🐸"],["거북이","🐢"],["병아리","🐤"],["오리","🦆"],
+  ["참새","🐦"],["독수리","🦅"],["부엉이","🦉"],["나비","🦋"],["벌","🐝"],["개미","🐜"],["거미","🕷️"],["달팽이","🐌"],
+  ["물고기","🐟"],["상어","🦈"],["고래","🐳"],["문어","🐙"],["게","🦀"],["새우","🦐"],["조개","🐚"],["펭귄","🐧"],
+  ["사과","🍎"],["배","🍐"],["포도","🍇"],["수박","🍉"],["참외","🍈"],["딸기","🍓"],["바나나","🍌"],["복숭아","🍑"],
+  ["귤","🍊"],["레몬","🍋"],["체리","🍒"],["키위","🥝"],["토마토","🍅"],["옥수수","🌽"],["당근","🥕"],["감자","🥔"],
+  ["고구마","🍠"],["오이","🥒"],["가지","🍆"],["호박","🎃"],["양파","🧅"],["버섯","🍄"],["밥","🍚"],["국","🍲"],
+  ["김밥","🍙"],["라면","🍜"],["만두","🥟"],["빵","🍞"],["우유","🥛"],["계란","🥚"],["치즈","🧀"],["고기","🍖"],
+  ["과자","🍪"],["사탕","🍬"],["초콜릿","🍫"],["젤리","🍮"],["주스","🧃"],["꿀","🍯"],["소금","🧂"],["김치","🥬"],
+  ["집","🏠"],["문","🚪"],["창문","🪟"],["의자","🪑"],["책상","🗄️"],["침대","🛏️"],["시계","⏰"],["거울","🪞"],
+  ["전화","📱"],["컴퓨터","💻"],["라디오","📻"],["냉장고","🧊"],["우산","☂️"],["가방","🎒"],["모자","🧢"],["신발","👟"],
+  ["옷","👕"],["바지","👖"],["치마","👗"],["양말","🧦"],["장갑","🧤"],["안경","👓"],["열쇠","🔑"],["지갑","👛"],
+  ["돈","💰"],["연필","✏️"],["지우개","🩹"],["가위","✂️"],["딱풀","🧴"],["공책","📓"],["책","📚"],["종이","📄"],
+  ["붓","🖌️"],["물감","🎨"],["숟가락","🥄"],["젓가락","🥢"],["그릇","🍽️"],["컵","🥤"],["비누","🧼"],["수건","🧺"],
+  ["하늘","🌤️"],["구름","☁️"],["해","☀️"],["달","🌙"],["별","⭐"],["비","☔"],["눈","❄️"],["바람","🌬️"],
+  ["무지개","🌈"],["번개","⚡"],["산","⛰️"],["바다","🌊"],["강","🏞️"],["나무","🌳"],["꽃","🌸"],["잎","🍃"],
+  ["풀","🌿"],["씨앗","🌱"],["돌","🪨"],["모래","🏖️"],["불","🔥"],["얼음","🧊"],["봄","🌷"],["여름","🌞"],
+  ["가을","🍁"],["겨울","⛄"],["안개","🌫️"],["파도","🌊"],["흙","🪴"],["이슬","💧"],
+  ["엄마","👩"],["아빠","👨"],["형","👦"],["누나","👧"],["언니","👩"],["오빠","👦"],["동생","🧒"],["아기","👶"],
+  ["친구","🧑"],["선생님","👩‍🏫"],["의사","🩺"],["경찰","👮"],["소방관","🚒"],["요리사","👨‍🍳"],["농부","👨‍🌾"],["가수","🎤"],
+  ["화가","🎨"],["머리","💇"],["눈썹","👀"],["코","👃"],["입","👄"],["귀","👂"],["손","✋"],["발","🦶"],
+  ["다리","🦵"],["어깨","💪"],["무릎","🦿"],["이빨","🦷"],["손가락","👆"],["얼굴","😊"],
+  ["자동차","🚗"],["버스","🚌"],["기차","🚂"],["지하철","🚇"],["비행기","✈️"],["자전거","🚲"],["택시","🚕"],["트럭","🚚"],
+  ["소방차","🚒"],["학교","🏫"],["병원","🏥"],["시장","🏬"],["공원","🏞️"],["도서관","📚"],["놀이터","🛝"],["수영장","🏊"],
+  ["화장실","🚽"],["교실","🪑"],["마당","🌱"],["계단","🪜"],
+];
+
 const Trace = {
   stage: 1, list: [], item: null, letters: [], li: 0, char: "",
   raw: [], strokes: [], si: 0, ci: 0, drawing: false, missed: false, ink: [], done: false,
@@ -6794,9 +6931,12 @@ const Trace = {
     return WORD_SETS.kid.words.filter(w => /^[a-z]{3,4}$/.test(w.en) && w.en.split("").every(c => GLYPHS[c]));
   },
 
+  // 3단계용 한글 단어 (1~3글자)
+  koWords() { return KO_WORDS.filter(w => w[0].length <= 3); },
+
   start(stage) {
-    this.stage = stage === 2 ? 2 : 1;
-    const n = this.stage === 2 ? CONFIG.trace.rounds2 : CONFIG.trace.rounds1;
+    this.stage = stage === 2 ? 2 : stage === 3 ? 3 : 1;
+    const n = this.stage === 1 ? CONFIG.trace.rounds1 : CONFIG.trace.rounds2;
     Session.reset("trace", n);
     SAVE.stats.gamesPlayed.trace = (SAVE.stats.gamesPlayed.trace || 0) + 1;
     saveNow();
@@ -6806,6 +6946,8 @@ const Trace = {
       const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
       const pool = shuffle(upper.concat(upper.map(c => c.toLowerCase())));
       this.list = pool.slice(0, n);
+    } else if (this.stage === 3) {
+      this.list = shuffle(this.koWords()).slice(0, n).map(w => ({ en: w[0], ko: "", emoji: w[1], ko2: w[0] }));
     } else {
       this.list = shuffle(this.words()).slice(0, n);
     }
@@ -6814,22 +6956,18 @@ const Trace = {
 
   question() {
     this.item = this.list[Session.round];
+    if (!this.item) { Result.show(); return; } // 낼 문제가 없으면 바로 결과로 (안전장치)
     Session.round++;
     setProgress();
     this.missed = false;
-    if (this.stage === 2) {
-      this.letters = this.item.en.split("");
-      this.li = 0;
-    } else {
-      this.letters = [String(this.item)];
-      this.li = 0;
-    }
+    this.li = 0;
+    this.letters = this.stage === 1 ? [String(this.item)] : this.item.en.split("");
     this.renderAll();
   },
 
   loadChar() {
     this.char = this.letters[this.li];
-    this.raw = GLYPHS[this.char] || GLYPHS.l;
+    this.raw = this.stage === 3 ? hangulStrokes(this.char) : (GLYPHS[this.char] || GLYPHS.l);
     this.strokes = this.raw.map(pts => samplePts(pts, 4.5));
     this.si = 0; this.ci = 0; this.ink = []; this.drawing = false; this.done = false;
     this.stall = 0; this.lastP = null; this.dirSet = false;
@@ -6840,14 +6978,15 @@ const Trace = {
     this.loadChar();
     const box = $("#tr-box");
     if (!box) return;
-    const w = this.stage === 2 ? this.item : null;
+    const w = this.stage === 1 ? null : this.item;
+    const koMode = this.stage === 3;
     box.innerHTML =
       '<div class="tr-prompt">' +
         (w
-          ? '<div class="tr-emoji">' + emojiHtml(w) + "</div>" +
+          ? '<div class="tr-emoji">' + (koMode ? esc(w.emoji) : emojiHtml(w)) + "</div>" +
             '<div class="tr-big">' + esc(w.en) + "</div>" +
-            '<div class="tr-ko">' + esc(w.ko) + "</div>" +
-            '<button class="speak-btn small" id="tr-speak">🔊</button>' +
+            (w.ko ? '<div class="tr-ko">' + esc(w.ko) + "</div>" : "") +
+            ((koMode ? TTS.koOk() : true) ? '<button class="speak-btn small" id="tr-speak">🔊</button>' : "") +
             '<div class="tr-word">' + this.letters.map((c, i) =>
               '<span class="' + (i < this.li ? "done" : i === this.li ? "cur" : "") + '">' + esc(c) + "</span>").join("") + "</div>"
           : '<div class="tr-big">' + esc(this.char) + " " + esc(this.char === this.char.toUpperCase() ? this.char.toLowerCase() : this.char.toUpperCase()) + "</div>" +
@@ -6873,16 +7012,27 @@ const Trace = {
     later(() => this.say(), 300);
   },
   // 대문자를 그대로 넘기면 "capital Q"처럼 읽는 음성이 있어 소문자로 보낸다 (글자 이름은 같음)
-  say() { TTS.speak(this.stage === 2 ? this.item.en : this.char.toLowerCase()); },
+  say() {
+    if (this.stage === 3) { TTS.speakKo(this.item.en); return; }
+    TTS.speak(this.stage === 2 ? this.item.en : this.char.toLowerCase());
+  },
+  // 공책 줄 — 알파벳은 4선, 한글은 네모 칸
+  rulesHtml() {
+    if (this.stage === 3) {
+      return '<rect class="tr-rule box" x="8" y="8" width="84" height="84" rx="6"/>' +
+        '<line class="tr-rule mid" x1="50" y1="8" x2="50" y2="92"/>' +
+        '<line class="tr-rule mid" x1="8" y1="50" x2="92" y2="50"/>';
+    }
+    return '<line class="tr-rule" x1="6" y1="12" x2="94" y2="12"/>' +
+      '<line class="tr-rule mid" x1="6" y1="44" x2="94" y2="44"/>' +
+      '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
+      '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
+  },
 
   renderPad() {
     const pad = $("#tr-pad");
     if (!pad) return;
-    let guide =
-      '<line class="tr-rule" x1="6" y1="12" x2="94" y2="12"/>' +
-      '<line class="tr-rule mid" x1="6" y1="44" x2="94" y2="44"/>' +
-      '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
-      '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
+    let guide = this.rulesHtml();
     let hints = "", ink = "";
     const placed = []; // 이미 찍은 번호 배지 위치 (F·E·B처럼 시작점이 같은 획이 겹치지 않게)
     this.raw.forEach((pts, i) => {
@@ -6905,6 +7055,8 @@ const Trace = {
         hints += '<polygon class="tr-arrow" points="0,-4 8,0 0,4" transform="translate(' +
           bb[0].toFixed(1) + "," + bb[1].toFixed(1) + ") rotate(" + ang.toFixed(1) + ')"/>';
       });
+      // 획이 많은 글자(한글 음절)는 번호가 글자를 가리므로 '지금 그을 획'만 번호를 보여준다
+      if (this.raw.length > 4 && !cur) return;
       const bp = this.badgeAt(i, placed);
       hints += '<circle class="tr-num' + (cur ? " cur" : "") + '" cx="' + bp[0].toFixed(1) + '" cy="' + bp[1].toFixed(1) + '" r="8"/>' +
         '<text class="tr-numt" x="' + bp[0].toFixed(1) + '" y="' + bp[1].toFixed(1) + '">' + (i + 1) + "</text>";
@@ -6921,11 +7073,7 @@ const Trace = {
     const host = $("#tr-demo");
     if (!host) return;
     if (this.demoTimer) clearInterval(this.demoTimer);
-    let rules =
-      '<line class="tr-rule" x1="6" y1="12" x2="94" y2="12"/>' +
-      '<line class="tr-rule mid" x1="6" y1="44" x2="94" y2="44"/>' +
-      '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
-      '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
+    let rules = this.rulesHtml();
     let g = "", inks = "";
     this.raw.forEach((pts, i) => {
       const d = smoothD(pts);
@@ -6937,8 +7085,10 @@ const Trace = {
     let badges = "";
     this.raw.forEach((pts, i) => {
       const bp = this.badgeAt(i, placed);
-      badges += '<circle class="tr-num" cx="' + bp[0].toFixed(1) + '" cy="' + bp[1].toFixed(1) + '" r="6.5"/>' +
-        '<text class="tr-numt" x="' + bp[0].toFixed(1) + '" y="' + bp[1].toFixed(1) + '" style="font-size:9px">' + (i + 1) + "</text>";
+      const r = this.raw.length > 4 ? 4.6 : 6.5; // 획이 많은 한글 음절은 번호를 작게
+      badges += '<circle class="tr-num" cx="' + bp[0].toFixed(1) + '" cy="' + bp[1].toFixed(1) + '" r="' + r + '"/>' +
+        '<text class="tr-numt" x="' + bp[0].toFixed(1) + '" y="' + bp[1].toFixed(1) +
+        '" style="font-size:' + (r * 1.35).toFixed(1) + 'px">' + (i + 1) + "</text>";
     });
     host.innerHTML = '<svg viewBox="0 0 100 100">' + rules + g + inks + badges +
       '<circle class="tr-pen" id="dm-pen" cx="-10" cy="-10" r="3.6"/></svg>';
@@ -6985,6 +7135,14 @@ const Trace = {
   near(p, q) { return Math.hypot(p[0] - q[0], p[1] - q[1]); },
   closed(cps) { return this.near(cps[0], cps[cps.length - 1]) < 6; }, // 시작=끝 (동그라미)
 
+  // 획이 짧으면(한글 자모, i의 점 등) 판정을 조금 좁힌다 — 긴 획은 그대로 넉넉하게
+  tolFor(cps) {
+    let len = 0;
+    for (let i = 1; i < cps.length; i++) len += this.near(cps[i], cps[i - 1]);
+    return Math.max(8, Math.min(CONFIG.trace.tol, len * 0.4));
+  },
+  offFor(cps) { return this.tolFor(cps) * (CONFIG.trace.offMax / CONFIG.trace.tol); },
+
   // 번호 배지 자리 — 앞 획 배지와 겹치면 획을 따라 이동, 그래도 겹치면 옆으로 살짝
   // (F·E·B처럼 시작점이 같은 글자에서 ① 이 ② 에 가려지던 문제)
   badgeAt(i, placed) {
@@ -7008,7 +7166,7 @@ const Trace = {
       if (this.done || Session.lock) return;
       const p = this.at(pad, e);
       const cps = this.strokes[this.si];
-      const reach = CONFIG.trace.tol * 1.6;
+      const reach = this.tolFor(cps) * 1.7;
       // 그리다 손을 뗐으면 멈춘 자리에서 이어서 (처음부터 다시 안 해도 됨)
       if (this.ci > 1 && cps[this.ci - 1] && this.near(p, cps[this.ci - 1]) <= reach) {
         pad.setPointerCapture(e.pointerId);
@@ -7046,13 +7204,14 @@ const Trace = {
       // 경로에서 너무 벗어나면 이 획만 다시
       let best = Infinity;
       for (let i = 0; i < cps.length; i++) best = Math.min(best, this.near(p, cps[i]));
-      if (best > CONFIG.trace.offMax) { this.fail("점선을 따라가 볼까요? 다시 ① 부터!"); return; }
+      if (best > this.offFor(cps)) { this.fail("점선을 따라가 볼까요? 다시 ① 부터!"); return; }
       // 빨리 그으면 포인터 이벤트 사이에 체크포인트 몇 개를 건너뛴다 →
       // '지금 위치에서 닿은 가장 앞선 체크포인트'까지 한 번에 인정 (앞으로만, jump 개까지)
       const before = this.ci;
       let adv = -1;
       const limit = Math.min(cps.length, this.ci + CONFIG.trace.jump);
-      for (let k = this.ci; k < limit; k++) if (this.near(p, cps[k]) <= CONFIG.trace.tol) adv = k;
+      const tol = this.tolFor(cps);
+      for (let k = this.ci; k < limit; k++) if (this.near(p, cps[k]) <= tol) adv = k;
       if (adv >= 0) this.ci = adv + 1;
       // 반대 방향으로 돌면(O·Q처럼 닫힌 원에서 자주 생김) 전진이 계속 안 된다
       // → 전진 없이 움직인 거리가 쌓이면 방향을 알려주고 그 획만 다시
@@ -7112,7 +7271,7 @@ const Trace = {
   charDone() {
     this.done = true;
     this.renderPad();
-    if (this.stage === 2 && this.li < this.letters.length - 1) {
+    if (this.stage !== 1 && this.li < this.letters.length - 1) { // 단어 모드(영어·한글): 다음 글자로
       this.li++;
       SFX.coin();
       later(() => this.renderAll(), 620);
@@ -7169,7 +7328,7 @@ Screens.trace = (el) => {
   const wordCount = Trace.words().length;
   el.innerHTML =
     topbarHtml({ home: true }) +
-    '<div class="page-title">✍️ 알파벳 쓰기</div>' +
+    '<div class="page-title">✍️ 글자 쓰기</div>' +
     '<p class="prompt-hint" style="margin:-6px 0 14px">번호 ① 부터 화살표 방향으로 손가락으로 따라 써요!</p>' +
     '<div class="home-menu">' +
       '<button class="mode-btn" data-act="trace-play" data-stage="1">' +
@@ -7179,7 +7338,12 @@ Screens.trace = (el) => {
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn" data-act="trace-play" data-stage="2">' +
         '<span class="mi" style="background:#ffeede">🐣</span>' +
-        '<span><div class="mt">2단계 · 쉬운 단어 쓰기</div><div class="md">3~4글자 단어 ' + wordCount + '개 중에서 (' +
+        '<span><div class="mt">2단계 · 쉬운 단어 쓰기</div><div class="md">3~4글자 영어 단어 ' + wordCount + '개 중에서 (' +
+          CONFIG.trace.rounds2 + "문제 · 단어 1개마다 🪙 " + CONFIG.trace.coin2 + ")</div></span>" +
+        '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="trace-play" data-stage="3">' +
+        '<span class="mi" style="background:#fdeaf2">🇰🇷</span>' +
+        '<span><div class="mt">3단계 · 한글 단어 쓰기</div><div class="md">초등 저학년 한글 단어 ' + Trace.koWords().length + '개 중에서 (' +
           CONFIG.trace.rounds2 + "문제 · 단어 1개마다 🪙 " + CONFIG.trace.coin2 + ")</div></span>" +
         '<span class="arrow">▶</span></button>' +
     "</div>" +
