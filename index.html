@@ -919,12 +919,35 @@ body.granny .sd-stage-btn .n { font-size: 20px; }
 .tr-prompt .tr-ko { font-size: 17px; font-weight: 800; color: var(--ink-soft); margin-top: 2px; }
 .tr-prompt .tr-emoji { font-size: 44px; line-height: 1.1; }
 .tr-prompt .speak-btn.small { position: static; margin: 6px auto 0; display: block; }
-/* 단어 진행 표시 (2단계) */
+/* 단어 모드는 한 줄로 압축 (획판이 화면 밖으로 밀리지 않게) */
+.tr-prompt.compact { padding: 8px 10px 9px; }
+.tr-prompt.compact .tr-head { display: flex; align-items: center; justify-content: center; gap: 9px; }
+.tr-prompt.compact .tr-emoji { font-size: 30px; }
+.tr-prompt.compact .tr-big { font-size: 26px; letter-spacing: 2px; }
+.tr-prompt.compact .tr-ko { font-size: 13.5px; margin: 0; }
+.tr-prompt.compact .speak-btn.small { margin: 0; width: 38px; height: 38px; font-size: 18px; }
+.tr-prompt.compact .tr-word { margin-top: 6px; }
+.tr-prompt.compact .tr-word span { min-width: 26px; font-size: 18px; padding: 1px 5px; }
+/* 단어 진행 표시 (2·3단계) */
 .tr-word { display: flex; justify-content: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .tr-word span {
   min-width: 34px; padding: 3px 6px; border-radius: 10px; background: #eef3f9;
   font-size: 24px; font-weight: 900; color: #b9c6d4; line-height: 1.2;
 }
+/* 단어 시작 팝업 — 무슨 단어를 쓰는지 크게 보여주고, 터치하면 시작 */
+.tr-intro {
+  position: fixed; inset: 0; z-index: 95; cursor: pointer;
+  background: rgba(31,53,80,.55); display: flex; align-items: center; justify-content: center;
+  padding: 20px; animation: fadeIn .18s ease;
+}
+.tr-intro .ti-card {
+  background: var(--card); border-radius: 28px; box-shadow: 0 14px 40px rgba(31,53,80,.3);
+  padding: 26px 30px 20px; text-align: center; max-width: 340px; animation: modalIn .28s cubic-bezier(.3,1.4,.6,1);
+}
+.tr-intro .ti-emoji { font-size: 76px; line-height: 1.1; }
+.tr-intro .ti-word { font-size: 46px; font-weight: 900; letter-spacing: 3px; color: var(--ink); margin-top: 6px; word-break: break-all; }
+.tr-intro .ti-ko { font-size: 24px; font-weight: 800; color: var(--ink-soft); margin-top: 4px; }
+.tr-intro .ti-go { font-size: 15px; font-weight: 800; color: var(--accent2); margin-top: 16px; animation: pulse 1.3s ease-in-out infinite; }
 .tr-word span.done { background: #d9f7e7; color: #1c8f5a; }
 .tr-word span.cur { background: var(--accent2); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 
@@ -4049,6 +4072,8 @@ function showScreen(name, params) {
   Cry.stop();
   currentScreen = name;
   closeModal(); // 화면이 바뀌면 이전 팝업은 닫는다 (잔류 모달 방지)
+  const intro = $("#tr-intro");
+  if (intro) intro.remove(); // 글자 쓰기 시작 팝업도 함께 정리
   document.body.classList.toggle("granny", SAVE.mode === "granny"); // 큰 글자·큰 버튼
   $("#app").innerHTML = "";
   const sec = document.createElement("section");
@@ -5075,7 +5100,10 @@ const Result = {
 
 Screens.result = (el, params) => {
   const rate = Session.total ? Session.correctFirst / Session.total : 0;
-  const stars = rate >= 0.9 ? 3 : rate >= 0.6 ? 2 : 1;
+  // 글자 쓰기는 '실수 없이 한 번에 쓴 개수'로 별을 준다 (1개 → ⭐⭐, 2개 이상 → ⭐⭐⭐)
+  const stars = Session.mode === "trace"
+    ? (Session.correctFirst >= 2 ? 3 : Session.correctFirst >= 1 ? 2 : 1)
+    : (rate >= 0.9 ? 3 : rate >= 0.6 ? 2 : 1);
   const titles = ["", "잘했어요!", "훌륭해요!", "완벽해요! 최고!"];
   const ballTotal = CONFIG.ballOrder.reduce((s, k) => s + SAVE.balls[k], 0);
   const cheapest = CONFIG.balls.poke.price;
@@ -6982,12 +7010,14 @@ const Trace = {
     const w = this.stage === 1 ? null : this.item;
     const koMode = this.stage === 3;
     box.innerHTML =
-      '<div class="tr-prompt">' +
+      '<div class="tr-prompt' + (w ? " compact" : "") + '">' +
         (w
-          ? '<div class="tr-emoji">' + (koMode ? esc(w.emoji) : emojiHtml(w)) + "</div>" +
-            '<div class="tr-big">' + esc(w.en) + "</div>" +
-            (w.ko ? '<div class="tr-ko">' + esc(w.ko) + "</div>" : "") +
-            ((koMode ? TTS.koOk() : true) ? '<button class="speak-btn small" id="tr-speak">🔊</button>' : "") +
+          ? '<div class="tr-head">' +
+              '<span class="tr-emoji">' + (koMode ? esc(w.emoji) : emojiHtml(w)) + "</span>" +
+              "<span><div class='tr-big'>" + esc(w.en) + "</div>" +
+              (w.ko ? '<div class="tr-ko">' + esc(w.ko) + "</div>" : "") + "</span>" +
+              ((koMode ? TTS.koOk() : true) ? '<button class="speak-btn small" id="tr-speak">🔊</button>' : "") +
+            "</div>" +
             '<div class="tr-word">' + this.letters.map((c, i) =>
               '<span class="' + (i < this.li ? "done" : i === this.li ? "cur" : "") + '">' + esc(c) + "</span>").join("") + "</div>"
           : '<div class="tr-big">' + esc(this.char) + " " + esc(this.char === this.char.toUpperCase() ? this.char.toLowerCase() : this.char.toUpperCase()) + "</div>" +
@@ -7010,7 +7040,34 @@ const Trace = {
     const sp = $("#tr-speak");
     if (sp) sp.addEventListener("click", () => { SFX.tap(); this.say(); });
     this.bind($("#tr-pad"));
-    later(() => this.say(), 300);
+    // 단어를 처음 시작할 때는 '무슨 단어를 쓰는지' 팝업으로 크게 보여준다
+    if (w && this.li === 0) this.intro(w, koMode);
+    else later(() => this.say(), 300);
+  },
+
+  // 단어 시작 팝업: 그림 + 단어 + 뜻을 크게 보여주고, 터치하면 따라쓰기 시작
+  intro(w, koMode) {
+    const old = $("#tr-intro");
+    if (old) old.remove();
+    Session.lock = true;
+    const el = document.createElement("div");
+    el.id = "tr-intro";
+    el.className = "tr-intro";
+    el.innerHTML =
+      '<div class="ti-card">' +
+        '<div class="ti-emoji">' + (koMode ? esc(w.emoji) : emojiHtml(w)) + "</div>" +
+        '<div class="ti-word">' + esc(w.en) + "</div>" +
+        (w.ko ? '<div class="ti-ko">' + esc(w.ko) + "</div>" : "") +
+        '<div class="ti-go">👆 눌러서 쓰기 시작!</div>' +
+      "</div>";
+    document.body.appendChild(el);
+    el.addEventListener("click", () => {
+      el.remove();
+      Session.lock = false;
+      SFX.tap();
+      this.say();
+    });
+    later(() => this.say(), 250);
   },
   // 대문자를 그대로 넘기면 "capital Q"처럼 읽는 음성이 있어 소문자로 보낸다 (글자 이름은 같음)
   say() {
