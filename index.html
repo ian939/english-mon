@@ -910,6 +910,54 @@ body.granny .sd-card .sd-card-title, body.granny .sd-trophy { font-size: 17px; }
 body.granny .sd-map { grid-template-columns: repeat(4, 1fr); }
 body.granny .sd-stage-btn .n { font-size: 20px; }
 
+/* ===== ✍️ 알파벳 쓰기 (획 순서대로 따라 쓰기) ===== */
+.tr-prompt {
+  background: var(--card); border-radius: 20px; box-shadow: var(--shadow);
+  padding: 12px 14px; margin-bottom: 12px; text-align: center;
+}
+.tr-prompt .tr-big { font-size: 40px; font-weight: 900; letter-spacing: 4px; color: var(--ink); line-height: 1.1; }
+.tr-prompt .tr-ko { font-size: 17px; font-weight: 800; color: var(--ink-soft); margin-top: 2px; }
+.tr-prompt .tr-emoji { font-size: 44px; line-height: 1.1; }
+.tr-prompt .speak-btn.small { position: static; margin: 6px auto 0; display: block; }
+/* 단어 진행 표시 (2단계) */
+.tr-word { display: flex; justify-content: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.tr-word span {
+  min-width: 34px; padding: 3px 6px; border-radius: 10px; background: #eef3f9;
+  font-size: 24px; font-weight: 900; color: #b9c6d4; line-height: 1.2;
+}
+.tr-word span.done { background: #d9f7e7; color: #1c8f5a; }
+.tr-word span.cur { background: var(--accent2); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+
+.tr-pad {
+  position: relative; width: 100%; max-width: 340px; margin: 0 auto;
+  aspect-ratio: 1 / 1; border-radius: 24px; background: var(--card);
+  box-shadow: var(--shadow); overflow: hidden; touch-action: none; user-select: none;
+}
+.tr-pad svg { display: block; width: 100%; height: 100%; }
+.tr-pad.shake { animation: shake .4s ease; }
+/* 공책 줄 — 글자가 어디에 앉는지 보이게 (윗줄 · 중간 점선 · 밑줄 · 아랫줄) */
+.tr-rule { stroke: #e3ebf3; stroke-width: 1; }
+.tr-rule.mid { stroke-dasharray: 3 3; }
+.tr-rule.base { stroke: #c9d8e6; stroke-width: 1.8; }
+.tr-guide { stroke: #e9eff6; stroke-width: 15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tr-dash {
+  stroke: #b9a7e6; stroke-width: 2.6; fill: none; stroke-linecap: round;
+  stroke-dasharray: 5 5; opacity: .55;
+}
+.tr-dash.cur { stroke: #7c5cd6; opacity: 1; stroke-width: 3.2; }
+.tr-ink { stroke: #ffb703; stroke-width: 15; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tr-ink.done { stroke: #38c172; }
+.tr-num { fill: #ff6b81; }
+.tr-num.cur { fill: #ff2d55; }
+.tr-numt { fill: #fff; font-size: 11px; font-weight: 900; text-anchor: middle; dominant-baseline: central; }
+.tr-arrow { fill: #7c5cd6; opacity: .75; }
+.tr-start { fill: none; stroke: #ff2d55; stroke-width: 2.5; opacity: .9; animation: pulse 1.1s ease-in-out infinite; }
+.tr-done-badge {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 74px; animation: rightPop .5s ease;
+}
+body.granny .tr-prompt .tr-big { font-size: 46px; }
+
 /* 가족 톡 / 가족 연결 */
 .chat-badge {
   background: #ff3b30; color: #fff; border-radius: 999px;
@@ -1012,6 +1060,13 @@ const CONFIG = {
   puzzle: { base: 5, under30: 2, under15: 5 }, // 퍼즐 클리어 +5, 30초 미만 +2(총7), 15초 미만 +5(총10)
   // 포켓몬 쇼다운 — 스테이지 1~50 (진행도는 저장, 코인은 스테이지 최초 클리어에만)
   showdown: { stages: 50, hintsPerTry: 1 },
+  // ✍️ 알파벳 쓰기 — 획 순서대로 따라 쓰기 (1단계 글자 / 2단계 3~4글자 단어)
+  trace: {
+    rounds1: 10, rounds2: 6,      // 한 판에 풀 문제 수
+    coin1: 1, coin2: 2,           // 완성 보상 (1단계 글자 1개 / 2단계 단어 1개)
+    comboEvery: 5, comboBonus: 3, // 실수 없이 연속 5번마다 보너스 코인
+    tol: 11, offMax: 17,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계)
+  },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
@@ -3655,7 +3710,7 @@ const Storage = {
       eco: { [DEVICE_ID]: eco }, // 기기별 누적: 코인 획득/사용, 볼 구매/사용
       chat: [],                  // 가족 톡 메시지 [{f:역할, x:내용, t:시각}]
       pokedex: {},   // { "25": { count: 1, first: timestamp } }
-      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0, showdown: 0 }, bestCombo: 0, caught: 0, rocketWins: 0 },
+      stats: { totalAnswered: 0, totalCorrect: 0, gamesPlayed: { quiz: 0, chain: 0, memory: 0, puzzle: 0, travel: 0, showdown: 0, trace: 0 }, bestCombo: 0, caught: 0, rocketWins: 0 },
       settings: { sfx: true, tts: true },
       mode: "kid",     // "kid" 아이 | "parent" 부모 | "granny" 할머니(해외여행) — 코인·볼·도감은 공유
       course: "toefl", // 부모 모드 코스: "toefl" | "ielts" (기기별 설정)
@@ -4247,6 +4302,10 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#ffeede">🚂</span>' +
         '<span><div class="mt">영어 끝말잇기</div><div class="md">마지막 글자로 단어 기차 만들기 · 🪙 벌기</div></span>' +
         '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="go-trace">' +
+        '<span class="mi" style="background:#eaf7ee">✍️</span>' +
+        '<span><div class="mt">알파벳 쓰기</div><div class="md">획 순서대로 따라 쓰기 · 글자/단어 · 🪙 벌기</div></span>' +
+        '<span class="arrow">▶</span></button>' +
       (isGranny()
         ? '<button class="mode-btn" data-act="go-travel">' +
           '<span class="mi" style="background:#e6f7ff">✈️</span>' +
@@ -4432,6 +4491,8 @@ document.addEventListener("click", (e) => {
     case "go-travel": SFX.tap(); Travel.start(); break;
     case "go-puzzle": SFX.tap(); Puzzle.stage = 1; showScreen("puzzle"); break;
     case "puzzle-next": SFX.tap(); closeModal(); Puzzle.stage++; showScreen("puzzle"); break;
+    case "go-trace": SFX.tap(); closeModal(); showScreen("trace"); break;
+    case "trace-play": SFX.tap(); closeModal(); Trace.start(Number(btn.dataset.stage) || 1); break;
     case "go-showdown": SFX.tap(); closeModal(); showScreen("showdown"); break;
     case "showdown-play":
       SFX.tap(); closeModal();
@@ -6598,6 +6659,360 @@ Screens.showdownPlay = (el, params) => {
 };
 
 /* ================================================================
+   [S15.6] ✍️ 알파벳 쓰기 — 획 순서대로 따라 쓰기
+   글자마다 '획 골격'을 좌표로 갖고 있어서(폰트 비의존) 안내선과 글자 모양이 항상 일치한다.
+   각 획을 체크포인트로 샘플링 → 시작점에서 출발해 순서대로 통과해야 인정.
+   1단계: 글자 1개 (🪙1) · 2단계: 3~4글자 단어 (🪙2) · 실수 없이 5연속마다 보너스 🪙3
+================================================================ */
+// 0~100 좌표계(y는 아래로). 대문자: 위 14 ~ 아래 86 / 소문자: x높이 44 ~ 86, 위로 12, 아래로 98
+function arcPts(cx, cy, rx, ry, a0, a1) {
+  const steps = Math.max(6, Math.round(Math.abs(a1 - a0) / 15));
+  const out = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = (a0 + (a1 - a0) * i / steps) * Math.PI / 180;
+    out.push([+(cx + rx * Math.cos(a)).toFixed(1), +(cy + ry * Math.sin(a)).toFixed(1)]);
+  }
+  return out;
+}
+const GLYPHS = {
+  A: [[[24,86],[50,14]], [[50,14],[76,86]], [[33,60],[67,60]]],
+  B: [[[30,14],[30,86]], arcPts(30,32,23,18,-90,90), arcPts(30,68,25,18,-90,90)],
+  C: [arcPts(52,50,26,36,-55,-305)],
+  D: [[[30,14],[30,86]], arcPts(30,50,30,36,-90,90)],
+  E: [[[32,14],[32,86]], [[32,14],[72,14]], [[32,50],[66,50]], [[32,86],[72,86]]],
+  F: [[[32,14],[32,86]], [[32,14],[72,14]], [[32,50],[64,50]]],
+  G: [arcPts(52,50,26,36,-55,-330), [[78,60],[79,50],[57,50]]],
+  H: [[[28,14],[28,86]], [[72,14],[72,86]], [[28,50],[72,50]]],
+  I: [[[50,14],[50,86]], [[32,14],[68,14]], [[32,86],[68,86]]],
+  J: [[[62,14],[62,64],[58,80],[44,86],[32,78]]],
+  K: [[[30,14],[30,86]], [[70,14],[32,52]], [[40,45],[72,86]]],
+  L: [[[32,14],[32,86]], [[32,86],[72,86]]],
+  M: [[[26,86],[26,14]], [[26,14],[50,58]], [[50,58],[74,14]], [[74,14],[74,86]]],
+  N: [[[28,86],[28,14]], [[28,14],[72,86]], [[72,86],[72,14]]],
+  O: [arcPts(50,50,26,36,-90,-450)],
+  P: [[[32,14],[32,86]], arcPts(32,36,26,22,-90,90)],
+  Q: [arcPts(50,48,26,34,-90,-450), [[60,66],[80,90]]],
+  R: [[[32,14],[32,86]], arcPts(32,36,24,22,-90,90), [[38,58],[74,86]]],
+  S: [[[72,26],[60,15],[42,16],[33,28],[42,42],[58,52],[70,63],[68,78],[52,86],[34,82],[26,71]]],
+  T: [[[28,16],[72,16]], [[50,16],[50,86]]],
+  U: [[[28,14],[28,60],[34,80],[50,86],[66,80],[72,60],[72,14]]],
+  V: [[[28,14],[50,86]], [[50,86],[72,14]]],
+  W: [[[24,14],[36,86]], [[36,86],[50,34]], [[50,34],[64,86]], [[64,86],[76,14]]],
+  X: [[[28,14],[72,86]], [[72,14],[28,86]]],
+  Y: [[[28,14],[50,50]], [[72,14],[50,50]], [[50,50],[50,86]]],
+  Z: [[[30,16],[70,16]], [[70,16],[30,86]], [[30,86],[70,86]]],
+  a: [arcPts(46,64,20,22,-30,-390), [[66,44],[66,86]]],
+  b: [[[30,12],[30,86]], arcPts(52,64,22,22,180,-180)],
+  c: [arcPts(52,64,21,22,-50,-310)],
+  d: [arcPts(44,64,22,22,-30,-390), [[66,12],[66,86]]],
+  e: [[[32,64],[70,64],[68,50],[52,43],[36,52],[32,66],[38,80],[52,86],[68,80]]],
+  f: [[[62,26],[54,14],[42,18],[40,32],[40,86]], [[28,44],[58,44]]],
+  g: [arcPts(46,60,20,18,-30,-390), [[66,42],[66,88],[58,97],[44,96],[36,90]]],
+  h: [[[32,12],[32,86]], [[32,58],[40,46],[56,44],[66,54],[66,86]]],
+  i: [[[50,44],[50,86]], [[50,26],[50,30]]],
+  j: [[[54,44],[54,88],[46,97],[34,95],[28,88]], [[54,26],[54,30]]],
+  k: [[[32,12],[32,86]], [[64,44],[34,68]], [[42,60],[66,86]]],
+  l: [[[50,12],[50,86]]],
+  m: [[[28,44],[28,86]], [[28,56],[36,46],[46,45],[50,56],[50,86]], [[50,56],[58,46],[68,45],[72,56],[72,86]]],
+  n: [[[32,44],[32,86]], [[32,58],[40,46],[56,45],[66,55],[66,86]]],
+  o: [arcPts(50,64,21,22,-90,-450)],
+  p: [[[32,44],[32,98]], arcPts(54,64,22,20,180,-180)],
+  q: [arcPts(46,64,20,20,-30,-390), [[66,44],[66,98]]],
+  r: [[[34,44],[34,86]], [[34,58],[42,47],[56,44],[64,46]]],
+  s: [[[66,50],[56,43],[42,45],[38,55],[48,62],[60,68],[62,78],[50,86],[38,84],[32,77]]],
+  t: [[[46,20],[46,76],[52,85],[62,84]], [[30,44],[62,44]]],
+  u: [[[32,44],[32,72],[40,84],[54,85],[64,76],[66,44]], [[66,60],[66,86]]],
+  v: [[[30,44],[50,86]], [[50,86],[70,44]]],
+  w: [[[26,44],[38,86]], [[38,86],[50,54]], [[50,54],[62,86]], [[62,86],[74,44]]],
+  x: [[[32,44],[68,86]], [[68,44],[32,86]]],
+  y: [[[32,44],[50,76]], [[70,44],[50,84],[44,94],[32,97]]],
+  z: [[[32,46],[68,46]], [[68,46],[32,86]], [[32,86],[68,86]]],
+};
+
+// 꺾이지 않게 부드러운 곡선으로 (Catmull-Rom → 베지어)
+function smoothD(pts) {
+  if (pts.length < 3) return "M" + pts.map(p => p[0] + " " + p[1]).join(" L ");
+  let d = "M" + pts[0][0] + " " + pts[0][1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += " C" + c1[0].toFixed(1) + " " + c1[1].toFixed(1) + "," +
+         c2[0].toFixed(1) + " " + c2[1].toFixed(1) + "," + p2[0] + " " + p2[1];
+  }
+  return d;
+}
+// 획을 일정 간격 체크포인트로 (판정용)
+function samplePts(pts, step) {
+  const out = [pts[0].slice()];
+  let carry = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 0.001) continue;
+    let t = (step - carry) / len;
+    while (t <= 1) {
+      out.push([x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]);
+      t += step / len;
+    }
+    carry = (carry + len) % step;
+  }
+  const last = pts[pts.length - 1];
+  if (Math.hypot(out[out.length - 1][0] - last[0], out[out.length - 1][1] - last[1]) > 0.5) out.push(last.slice());
+  return out;
+}
+
+const Trace = {
+  stage: 1, list: [], item: null, letters: [], li: 0, char: "",
+  raw: [], strokes: [], si: 0, ci: 0, drawing: false, missed: false, ink: [], done: false,
+
+  // 2단계용 단어: 아이 단어에서 3~4글자 + 모두 획 데이터가 있는 것
+  words() {
+    return WORD_SETS.kid.words.filter(w => /^[a-z]{3,4}$/.test(w.en) && w.en.split("").every(c => GLYPHS[c]));
+  },
+
+  start(stage) {
+    this.stage = stage === 2 ? 2 : 1;
+    const n = this.stage === 2 ? CONFIG.trace.rounds2 : CONFIG.trace.rounds1;
+    Session.reset("trace", n);
+    SAVE.stats.gamesPlayed.trace = (SAVE.stats.gamesPlayed.trace || 0) + 1;
+    saveNow();
+    lastGame = { restart: () => Trace.start(this.stage) };
+    if (this.stage === 1) {
+      const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+      const pool = shuffle(upper.concat(upper.map(c => c.toLowerCase())));
+      this.list = pool.slice(0, n);
+    } else {
+      this.list = shuffle(this.words()).slice(0, n);
+    }
+    showScreen("tracePlay");
+  },
+
+  question() {
+    this.item = this.list[Session.round];
+    Session.round++;
+    setProgress();
+    this.missed = false;
+    if (this.stage === 2) {
+      this.letters = this.item.en.split("");
+      this.li = 0;
+    } else {
+      this.letters = [String(this.item)];
+      this.li = 0;
+    }
+    this.renderAll();
+  },
+
+  loadChar() {
+    this.char = this.letters[this.li];
+    this.raw = GLYPHS[this.char] || GLYPHS.l;
+    this.strokes = this.raw.map(pts => samplePts(pts, 4.5));
+    this.si = 0; this.ci = 0; this.ink = []; this.drawing = false; this.done = false;
+  },
+
+  // 문제 전체(프롬프트 + 획판) 그리기
+  renderAll() {
+    this.loadChar();
+    const box = $("#tr-box");
+    if (!box) return;
+    const w = this.stage === 2 ? this.item : null;
+    box.innerHTML =
+      '<div class="tr-prompt">' +
+        (w
+          ? '<div class="tr-emoji">' + emojiHtml(w) + "</div>" +
+            '<div class="tr-big">' + esc(w.en) + "</div>" +
+            '<div class="tr-ko">' + esc(w.ko) + "</div>" +
+            '<button class="speak-btn small" id="tr-speak">🔊</button>' +
+            '<div class="tr-word">' + this.letters.map((c, i) =>
+              '<span class="' + (i < this.li ? "done" : i === this.li ? "cur" : "") + '">' + esc(c) + "</span>").join("") + "</div>"
+          : '<div class="tr-big">' + esc(this.char) + " " + esc(this.char === this.char.toUpperCase() ? this.char.toLowerCase() : this.char.toUpperCase()) + "</div>" +
+            '<div class="tr-ko">번호 ① 부터 화살표 방향으로 따라 써요!</div>' +
+            '<button class="speak-btn small" id="tr-speak">🔊</button>') +
+      "</div>" +
+      '<div class="tr-pad" id="tr-pad"></div>' +
+      '<div class="pz-hint" id="tr-hint">손가락으로 <b>①</b> 에서 출발해 점선을 따라 쭉 그어요!</div>';
+    this.renderPad();
+    const sp = $("#tr-speak");
+    if (sp) sp.addEventListener("click", () => { SFX.tap(); this.say(); });
+    this.bind($("#tr-pad"));
+    later(() => this.say(), 300);
+  },
+  say() { TTS.speak(this.stage === 2 ? this.item.en : this.char); },
+
+  renderPad() {
+    const pad = $("#tr-pad");
+    if (!pad) return;
+    let guide =
+      '<line class="tr-rule" x1="6" y1="12" x2="94" y2="12"/>' +
+      '<line class="tr-rule mid" x1="6" y1="44" x2="94" y2="44"/>' +
+      '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
+      '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
+    let hints = "", ink = "";
+    this.raw.forEach((pts, i) => {
+      const d = smoothD(pts);
+      guide += '<path class="tr-guide" d="' + d + '"/>';
+      if (i < this.si) { ink += '<path class="tr-ink done" d="' + d + '"/>'; return; }
+      // 아직 안 그은 획: 점선 + 시작 번호 + 끝 화살표
+      const cur = i === this.si;
+      hints += '<path class="tr-dash' + (cur ? " cur" : "") + '" d="' + d + '"/>';
+      const s = pts[0], e = pts[pts.length - 1], p2 = pts[pts.length - 2] || s;
+      const ang = Math.atan2(e[1] - p2[1], e[0] - p2[0]) * 180 / Math.PI;
+      hints += '<polygon class="tr-arrow" points="0,-4 8,0 0,4" transform="translate(' +
+        e[0] + "," + e[1] + ") rotate(" + ang.toFixed(1) + ')"/>';
+      hints += '<circle class="tr-num' + (cur ? " cur" : "") + '" cx="' + s[0] + '" cy="' + s[1] + '" r="8"/>' +
+        '<text class="tr-numt" x="' + s[0] + '" y="' + s[1] + '">' + (i + 1) + "</text>";
+      if (cur) hints += '<circle class="tr-start" cx="' + s[0] + '" cy="' + s[1] + '" r="12"/>';
+    });
+    if (this.ink.length > 1) ink += '<path class="tr-ink" d="' + smoothD(this.ink) + '"/>';
+    pad.innerHTML = '<svg viewBox="0 0 100 100">' + guide + ink + hints + "</svg>" +
+      (this.done ? '<div class="tr-done-badge">✅</div>' : "");
+  },
+
+  // 화면 좌표 → 0~100 좌표
+  at(pad, e) {
+    const r = pad.getBoundingClientRect();
+    return [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100];
+  },
+  near(p, q) { return Math.hypot(p[0] - q[0], p[1] - q[1]); },
+
+  bind(pad) {
+    if (!pad) return;
+    pad.addEventListener("pointerdown", (e) => {
+      if (this.done || Session.lock) return;
+      const p = this.at(pad, e);
+      const cps = this.strokes[this.si];
+      if (this.near(p, cps[0]) > CONFIG.trace.tol * 1.5) { this.nudge("① 번 동그라미에서 출발해요!"); return; }
+      pad.setPointerCapture(e.pointerId);
+      this.drawing = true; this.ci = 1; this.ink = [cps[0].slice(), p];
+      SFX.click();
+      this.renderPad();
+    });
+    pad.addEventListener("pointermove", (e) => {
+      if (!this.drawing) return;
+      e.preventDefault();
+      const p = this.at(pad, e);
+      const cps = this.strokes[this.si];
+      // 경로에서 너무 벗어나면 이 획만 다시
+      let best = Infinity;
+      for (let i = 0; i < cps.length; i++) best = Math.min(best, this.near(p, cps[i]));
+      if (best > CONFIG.trace.offMax) { this.fail("점선을 따라가 볼까요? 다시 ① 부터!"); return; }
+      while (this.ci < cps.length && this.near(p, cps[this.ci]) <= CONFIG.trace.tol) this.ci++;
+      this.ink.push(p);
+      if (this.ink.length % 2 === 0) this.renderPad();
+      if (this.ci >= cps.length) this.strokeDone();
+    }, { passive: false });
+    const up = () => {
+      if (!this.drawing || this.done) return;
+      this.fail("끝까지 쭉 그어 볼까요? 다시 ① 부터!");
+    };
+    pad.addEventListener("pointerup", up);
+    pad.addEventListener("pointercancel", up);
+    // pointerleave는 쓰지 않음 — 손가락이 판을 살짝 벗어나도 경로 이탈(offMax)로만 판정
+  },
+
+  nudge(msg) {
+    SFX.wrong();
+    const pad = $("#tr-pad");
+    if (pad) { pad.classList.remove("shake"); void pad.offsetWidth; pad.classList.add("shake"); }
+    toast("✍️ " + msg, 1800);
+    const h = $("#tr-hint");
+    if (h) h.textContent = msg;
+  },
+  fail(msg) {
+    this.drawing = false;
+    this.missed = true;
+    breakCombo();
+    this.ci = 0; this.ink = [];
+    this.renderPad();
+    this.nudge(msg);
+  },
+
+  strokeDone() {
+    this.drawing = false;
+    this.si++;
+    this.ink = [];
+    SFX.correct();
+    if (this.si >= this.strokes.length) { this.charDone(); return; }
+    this.renderPad();
+    toast("좋아요! 다음은 " + (this.si + 1) + "번 획 ✍️", 1200);
+  },
+
+  charDone() {
+    this.done = true;
+    this.renderPad();
+    if (this.stage === 2 && this.li < this.letters.length - 1) {
+      this.li++;
+      SFX.coin();
+      later(() => this.renderAll(), 620);
+      return;
+    }
+    this.award();
+  },
+
+  award() {
+    Session.lock = true;
+    const coins = this.stage === 2 ? CONFIG.trace.coin2 : CONFIG.trace.coin1;
+    SAVE.stats.totalAnswered++;
+    if (!this.missed) {
+      Session.correctFirst++;
+      SAVE.stats.totalCorrect++;
+      Session.combo++;
+      Session.maxCombo = Math.max(Session.maxCombo, Session.combo);
+      SAVE.stats.bestCombo = Math.max(SAVE.stats.bestCombo, Session.combo);
+    }
+    saveNow();
+    addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.45);
+    const cc = $("#combo-chip");
+    if (cc) {
+      cc.textContent = Session.combo >= 2 ? "🔥" + Session.combo : "";
+      cc.classList.remove("hot"); void cc.offsetWidth; cc.classList.add("hot");
+    }
+    let bonus = 0;
+    if (!this.missed && Session.combo > 0 && Session.combo % CONFIG.trace.comboEvery === 0) {
+      bonus = CONFIG.trace.comboBonus;
+      addCoins(bonus);
+      SFX.combo();
+      toast("🔥 " + Session.combo + "연속! 보너스 코인 +" + bonus, 2000);
+    } else {
+      SFX.catchOk();
+    }
+    fxConfetti(["✍️", "⭐", "✨"], 10);
+    this.say();
+    later(() => {
+      Session.lock = false;
+      if (Session.round >= Session.total) Result.show();
+      else this.question();
+    }, bonus ? 2100 : 1500);
+  },
+};
+
+Screens.trace = (el) => {
+  const wordCount = Trace.words().length;
+  el.innerHTML =
+    topbarHtml({ home: true }) +
+    '<div class="page-title">✍️ 알파벳 쓰기</div>' +
+    '<p class="prompt-hint" style="margin:-6px 0 14px">번호 ① 부터 화살표 방향으로 손가락으로 따라 써요!</p>' +
+    '<div class="home-menu">' +
+      '<button class="mode-btn" data-act="trace-play" data-stage="1">' +
+        '<span class="mi" style="background:#e3f0ff">🔤</span>' +
+        '<span><div class="mt">1단계 · 글자 쓰기</div><div class="md">A~Z · a~z 획 순서대로 (' +
+          CONFIG.trace.rounds1 + "문제 · 1개당 🪙 " + CONFIG.trace.coin1 + ")</div></span>" +
+        '<span class="arrow">▶</span></button>' +
+      '<button class="mode-btn" data-act="trace-play" data-stage="2">' +
+        '<span class="mi" style="background:#ffeede">🐣</span>' +
+        '<span><div class="mt">2단계 · 쉬운 단어 쓰기</div><div class="md">3~4글자 단어 ' + wordCount + '개 중에서 (' +
+          CONFIG.trace.rounds2 + "문제 · 1개당 🪙 " + CONFIG.trace.coin2 + ")</div></span>" +
+        '<span class="arrow">▶</span></button>' +
+    "</div>" +
+    '<div class="pz-hint">실수 없이 <b>' + CONFIG.trace.comboEvery + "연속</b> 성공하면 보너스 🪙 " + CONFIG.trace.comboBonus + "!</div>";
+};
+
+Screens.tracePlay = (el) => {
+  el.innerHTML = gameHeadHtml() + '<div id="tr-box"></div>';
+  Trace.question();
+};
+
+/* ================================================================
    [S16] 몬스터볼 상점
 ================================================================ */
 Screens.shop = (el) => {
@@ -7516,6 +7931,7 @@ const Family = {
         puzzle: mx(sa.gamesPlayed && sa.gamesPlayed.puzzle, sb.gamesPlayed && sb.gamesPlayed.puzzle),
         travel: mx(sa.gamesPlayed && sa.gamesPlayed.travel, sb.gamesPlayed && sb.gamesPlayed.travel),
         showdown: mx(sa.gamesPlayed && sa.gamesPlayed.showdown, sb.gamesPlayed && sb.gamesPlayed.showdown),
+        trace: mx(sa.gamesPlayed && sa.gamesPlayed.trace, sb.gamesPlayed && sb.gamesPlayed.trace),
       },
     };
     m.partnerHp = {};
