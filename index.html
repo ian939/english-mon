@@ -928,8 +928,27 @@ body.granny .sd-stage-btn .n { font-size: 20px; }
 .tr-word span.done { background: #d9f7e7; color: #1c8f5a; }
 .tr-word span.cur { background: var(--accent2); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
 
+/* 왼쪽: 쓰는 순서 시범(반복 재생) · 오른쪽: 따라 쓰는 칸 */
+.tr-stage { display: flex; gap: 8px; align-items: flex-start; }
+.tr-demo { width: 39%; flex: none; }
+.tr-try { flex: 1; min-width: 0; }
+.tr-cap {
+  text-align: center; font-size: 12.5px; font-weight: 900; color: var(--ink-soft);
+  margin: 0 0 5px;
+}
+.tr-demo-pad {
+  position: relative; width: 100%; aspect-ratio: 1 / 1;
+  border-radius: 18px; background: #f7fafd; box-shadow: var(--shadow); overflow: hidden;
+}
+.tr-demo-pad svg { display: block; width: 100%; height: 100%; }
+.tr-demo-ink { stroke: #ff9f1c; stroke-width: 13; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tr-pen { fill: #ff2d55; opacity: .9; }
+@media (max-width: 360px) {
+  .tr-stage { display: block; }
+  .tr-demo { width: 62%; margin: 0 auto 10px; }
+}
 .tr-pad {
-  position: relative; width: 100%; max-width: 340px; margin: 0 auto;
+  position: relative; width: 100%;
   aspect-ratio: 1 / 1; border-radius: 24px; background: var(--card);
   box-shadow: var(--shadow); overflow: hidden; touch-action: none; user-select: none;
 }
@@ -1065,8 +1084,9 @@ const CONFIG = {
     rounds1: 10, rounds2: 6,      // 한 판에 풀 문제 수
     coin1: 1, coin2: 2,           // 완성 보상 (1단계 글자 1개 / 2단계 단어 1개)
     comboEvery: 5, comboBonus: 3, // 실수 없이 연속 5번마다 보너스 코인
-    tol: 11, offMax: 17,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계)
-    stallMax: 26,                 // 전진 없이 이만큼 움직이면 "방향이 반대"로 안내
+    tol: 16, offMax: 26,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계) — 넉넉하게
+    stallMax: 45,                 // 전진 없이 이만큼 움직이면 "방향이 반대"로 안내
+    jump: 10,                     // 한 번에 인정할 최대 전진 체크포인트 수 (빨리 그어도 인정)
   },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
@@ -6766,7 +6786,7 @@ function samplePts(pts, step) {
 const Trace = {
   stage: 1, list: [], item: null, letters: [], li: 0, char: "",
   raw: [], strokes: [], si: 0, ci: 0, drawing: false, missed: false, ink: [], done: false,
-  stall: 0, lastP: null,
+  stall: 0, lastP: null, dirSet: false,
 
   // 2단계용 단어: 아이 단어에서 3~4글자 + 모두 획 데이터가 있는 것
   words() {
@@ -6810,7 +6830,7 @@ const Trace = {
     this.raw = GLYPHS[this.char] || GLYPHS.l;
     this.strokes = this.raw.map(pts => samplePts(pts, 4.5));
     this.si = 0; this.ci = 0; this.ink = []; this.drawing = false; this.done = false;
-    this.stall = 0; this.lastP = null;
+    this.stall = 0; this.lastP = null; this.dirSet = false;
   },
 
   // 문제 전체(프롬프트 + 획판) 그리기
@@ -6832,9 +6852,19 @@ const Trace = {
             '<div class="tr-ko">번호 ① 부터 화살표 방향으로 따라 써요!</div>' +
             '<button class="speak-btn small" id="tr-speak">🔊</button>') +
       "</div>" +
-      '<div class="tr-pad" id="tr-pad"></div>' +
-      '<div class="pz-hint" id="tr-hint">손가락으로 <b>①</b> 에서 출발해 점선을 따라 쭉 그어요!</div>';
+      '<div class="tr-stage">' +
+        '<div class="tr-demo">' +
+          '<div class="tr-cap">👀 이렇게 써요</div>' +
+          '<div class="tr-demo-pad" id="tr-demo"></div>' +
+        "</div>" +
+        '<div class="tr-try">' +
+          '<div class="tr-cap">✍️ 따라 써요</div>' +
+          '<div class="tr-pad" id="tr-pad"></div>' +
+        "</div>" +
+      "</div>" +
+      '<div class="pz-hint" id="tr-hint">왼쪽을 보고, 오른쪽 칸에 <b>①</b> 부터 따라 그어요!</div>';
     this.renderPad();
+    this.demo();
     const sp = $("#tr-speak");
     if (sp) sp.addEventListener("click", () => { SFX.tap(); this.say(); });
     this.bind($("#tr-pad"));
@@ -6852,6 +6882,7 @@ const Trace = {
       '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
       '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
     let hints = "", ink = "";
+    const placed = []; // 이미 찍은 번호 배지 위치 (F·E·B처럼 시작점이 같은 획이 겹치지 않게)
     this.raw.forEach((pts, i) => {
       const d = smoothD(pts);
       guide += '<path class="tr-guide" d="' + d + '"/>';
@@ -6872,13 +6903,76 @@ const Trace = {
         hints += '<polygon class="tr-arrow" points="0,-4 8,0 0,4" transform="translate(' +
           bb[0].toFixed(1) + "," + bb[1].toFixed(1) + ") rotate(" + ang.toFixed(1) + ')"/>';
       });
-      hints += '<circle class="tr-num' + (cur ? " cur" : "") + '" cx="' + s[0] + '" cy="' + s[1] + '" r="8"/>' +
-        '<text class="tr-numt" x="' + s[0] + '" y="' + s[1] + '">' + (i + 1) + "</text>";
+      const bp = this.badgeAt(i, placed);
+      hints += '<circle class="tr-num' + (cur ? " cur" : "") + '" cx="' + bp[0].toFixed(1) + '" cy="' + bp[1].toFixed(1) + '" r="8"/>' +
+        '<text class="tr-numt" x="' + bp[0].toFixed(1) + '" y="' + bp[1].toFixed(1) + '">' + (i + 1) + "</text>";
+      // 출발 자리는 언제나 진짜 시작점에 표시 (지금 그을 획만)
       if (cur) hints += '<circle class="tr-start" cx="' + s[0] + '" cy="' + s[1] + '" r="12"/>';
     });
     if (this.ink.length > 1) ink += '<path class="tr-ink" d="' + smoothD(this.ink) + '"/>';
     pad.innerHTML = '<svg viewBox="0 0 100 100">' + guide + ink + hints + "</svg>" +
       (this.done ? '<div class="tr-done-badge">✅</div>' : "");
+  },
+
+  // 왼쪽 시범: 획 순서대로 그려지는 모습을 계속 반복 재생
+  demo() {
+    const host = $("#tr-demo");
+    if (!host) return;
+    if (this.demoTimer) clearInterval(this.demoTimer);
+    let rules =
+      '<line class="tr-rule" x1="6" y1="12" x2="94" y2="12"/>' +
+      '<line class="tr-rule mid" x1="6" y1="44" x2="94" y2="44"/>' +
+      '<line class="tr-rule base" x1="6" y1="86" x2="94" y2="86"/>' +
+      '<line class="tr-rule" x1="6" y1="98" x2="94" y2="98"/>';
+    let g = "", inks = "";
+    this.raw.forEach((pts, i) => {
+      const d = smoothD(pts);
+      g += '<path class="tr-guide" d="' + d + '" style="stroke-width:13"/>';
+      inks += '<path class="tr-demo-ink" id="dm-' + i + '" d="' + d + '"/>';
+    });
+    // 획 번호 (작게) — 그려지는 획에 가려지지 않게 맨 위에 얹는다
+    const placed = [];
+    let badges = "";
+    this.raw.forEach((pts, i) => {
+      const bp = this.badgeAt(i, placed);
+      badges += '<circle class="tr-num" cx="' + bp[0].toFixed(1) + '" cy="' + bp[1].toFixed(1) + '" r="6.5"/>' +
+        '<text class="tr-numt" x="' + bp[0].toFixed(1) + '" y="' + bp[1].toFixed(1) + '" style="font-size:9px">' + (i + 1) + "</text>";
+    });
+    host.innerHTML = '<svg viewBox="0 0 100 100">' + rules + g + inks + badges +
+      '<circle class="tr-pen" id="dm-pen" cx="-10" cy="-10" r="3.6"/></svg>';
+
+    const paths = this.raw.map((_, i) => host.querySelector("#dm-" + i));
+    const pen = host.querySelector("#dm-pen");
+    const lens = paths.map(p => p.getTotalLength());
+    const durs = lens.map(L => Math.max(450, Math.min(1500, L * 16)));
+    const gap = 220, hold = 900;
+    const cycle = durs.reduce((s, d) => s + d + gap, 0) + hold;
+    const t0 = Date.now();
+    const draw = () => {
+      let t = (Date.now() - t0) % cycle;
+      let active = -1, prog = 0;
+      for (let i = 0; i < paths.length; i++) {
+        const seg = durs[i] + gap;
+        if (t < seg) { active = i; prog = Math.min(1, t / durs[i]); break; }
+        t -= seg;
+      }
+      paths.forEach((pa, i) => {
+        const L = lens[i];
+        const off = active < 0 ? 0 : i < active ? 0 : i > active ? L : L * (1 - prog);
+        pa.style.strokeDasharray = L;
+        pa.style.strokeDashoffset = off;
+      });
+      if (active >= 0 && prog < 1) {
+        const pt = paths[active].getPointAtLength(lens[active] * prog);
+        pen.setAttribute("cx", pt.x); pen.setAttribute("cy", pt.y);
+        pen.style.opacity = ".9";
+      } else {
+        pen.style.opacity = "0";
+      }
+    };
+    draw();
+    this.demoTimer = setInterval(draw, 45);
+    screenTimers.push(this.demoTimer);
   },
 
   // 화면 좌표 → 0~100 좌표
@@ -6887,6 +6981,24 @@ const Trace = {
     return [(e.clientX - r.left) / r.width * 100, (e.clientY - r.top) / r.height * 100];
   },
   near(p, q) { return Math.hypot(p[0] - q[0], p[1] - q[1]); },
+  closed(cps) { return this.near(cps[0], cps[cps.length - 1]) < 6; }, // 시작=끝 (동그라미)
+
+  // 번호 배지 자리 — 앞 획 배지와 겹치면 획을 따라 이동, 그래도 겹치면 옆으로 살짝
+  // (F·E·B처럼 시작점이 같은 글자에서 ① 이 ② 에 가려지던 문제)
+  badgeAt(i, placed) {
+    const cps = this.strokes[i];
+    const hit = q => this.near(bp, q) < 15;
+    let bp = cps[0];
+    const lim = Math.max(1, Math.floor(cps.length * 0.75));
+    for (let k = 1; k < lim && placed.some(hit); k++) bp = cps[k];
+    if (placed.some(hit)) {
+      const a = cps[0], b = cps[Math.min(2, cps.length - 1)];
+      const dx = b[0] - a[0], dy = b[1] - a[1], m = Math.hypot(dx, dy) || 1;
+      bp = [Math.max(9, Math.min(91, a[0] - dy / m * 13)), Math.max(9, Math.min(91, a[1] + dx / m * 13))];
+    }
+    placed.push(bp);
+    return bp;
+  },
 
   bind(pad) {
     if (!pad) return;
@@ -6894,10 +7006,19 @@ const Trace = {
       if (this.done || Session.lock) return;
       const p = this.at(pad, e);
       const cps = this.strokes[this.si];
-      if (this.near(p, cps[0]) > CONFIG.trace.tol * 1.5) { this.nudge("① 번 동그라미에서 출발해요!"); return; }
+      const reach = CONFIG.trace.tol * 1.6;
+      // 그리다 손을 뗐으면 멈춘 자리에서 이어서 (처음부터 다시 안 해도 됨)
+      if (this.ci > 1 && cps[this.ci - 1] && this.near(p, cps[this.ci - 1]) <= reach) {
+        pad.setPointerCapture(e.pointerId);
+        this.drawing = true; this.stall = 0; this.lastP = p;
+        this.ink.push(p);
+        SFX.click();
+        return;
+      }
+      if (this.near(p, cps[0]) > reach) { this.nudge("① 번 동그라미에서 출발해요!"); return; }
       pad.setPointerCapture(e.pointerId);
       this.drawing = true; this.ci = 1; this.ink = [cps[0].slice(), p];
-      this.stall = 0; this.lastP = p;
+      this.stall = 0; this.lastP = p; this.dirSet = false;
       SFX.click();
       this.renderPad();
     });
@@ -6905,27 +7026,54 @@ const Trace = {
       if (!this.drawing) return;
       e.preventDefault();
       const p = this.at(pad, e);
-      const cps = this.strokes[this.si];
+      let cps = this.strokes[this.si];
+      // 닫힌 원(O·o·a의 동그라미 등)은 어느 쪽으로 돌아도 인정 —
+      // 시작점에서 처음 움직인 방향이 안내 방향과 반대면 획을 뒤집어서 그대로 진행
+      if (!this.dirSet && this.closed(cps)) {
+        const mv = [p[0] - cps[0][0], p[1] - cps[0][1]];
+        if (Math.hypot(mv[0], mv[1]) >= 4) {
+          const tg = [cps[1][0] - cps[0][0], cps[1][1] - cps[0][1]];
+          if (mv[0] * tg[0] + mv[1] * tg[1] < 0) {
+            this.strokes[this.si] = cps.slice().reverse();
+            cps = this.strokes[this.si];
+            this.ci = 1;
+          }
+          this.dirSet = true;
+        }
+      }
       // 경로에서 너무 벗어나면 이 획만 다시
       let best = Infinity;
       for (let i = 0; i < cps.length; i++) best = Math.min(best, this.near(p, cps[i]));
       if (best > CONFIG.trace.offMax) { this.fail("점선을 따라가 볼까요? 다시 ① 부터!"); return; }
-      // 반대 방향으로 돌면(O·Q처럼 닫힌 원에서 자주 생김) 다음 체크포인트가 계속 안 열린다
-      // → 전진 없이 움직인 거리가 쌓이면 방향을 알려주고 그 획만 다시
+      // 빨리 그으면 포인터 이벤트 사이에 체크포인트 몇 개를 건너뛴다 →
+      // '지금 위치에서 닿은 가장 앞선 체크포인트'까지 한 번에 인정 (앞으로만, jump 개까지)
       const before = this.ci;
-      while (this.ci < cps.length && this.near(p, cps[this.ci]) <= CONFIG.trace.tol) this.ci++;
+      let adv = -1;
+      const limit = Math.min(cps.length, this.ci + CONFIG.trace.jump);
+      for (let k = this.ci; k < limit; k++) if (this.near(p, cps[k]) <= CONFIG.trace.tol) adv = k;
+      if (adv >= 0) this.ci = adv + 1;
+      // 반대 방향으로 돌면(O·Q처럼 닫힌 원에서 자주 생김) 전진이 계속 안 된다
+      // → 전진 없이 움직인 거리가 쌓이면 방향을 알려주고 그 획만 다시
       if (this.ci > before) { this.stall = 0; } else {
         this.stall += this.near(p, this.lastP || p);
-        if (this.stall > CONFIG.trace.stallMax) { this.fail("화살표 방향으로 그어요! ① 부터 다시 해 볼까요?"); return; }
+        if (this.stall > CONFIG.trace.stallMax) {
+          this.fail(this.closed(cps) ? "선을 따라 한 바퀴 돌려 볼까요?" : "화살표 방향으로 그어요! ① 부터 다시 해 볼까요?");
+          return;
+        }
       }
       this.lastP = p;
       this.ink.push(p);
       if (this.ink.length % 2 === 0) this.renderPad();
       if (this.ci >= cps.length) this.strokeDone();
     }, { passive: false });
+    // 손을 떼도 그은 만큼은 남긴다 — 멈춘 자리를 다시 짚으면 이어서 (실수로 치지 않음)
     const up = () => {
       if (!this.drawing || this.done) return;
-      this.fail("끝까지 쭉 그어 볼까요? 다시 ① 부터!");
+      this.drawing = false;
+      if (this.ci <= 1) { this.ci = 0; this.ink = []; this.renderPad(); return; }
+      const h = $("#tr-hint");
+      if (h) h.textContent = "손을 뗀 자리를 다시 짚고 이어서 그어요! ✍️";
+      this.renderPad();
     };
     pad.addEventListener("pointerup", up);
     pad.addEventListener("pointercancel", up);
@@ -6944,7 +7092,7 @@ const Trace = {
     this.drawing = false;
     this.missed = true;
     breakCombo();
-    this.ci = 0; this.ink = []; this.stall = 0; this.lastP = null;
+    this.ci = 0; this.ink = []; this.stall = 0; this.lastP = null; this.dirSet = false;
     this.renderPad();
     this.nudge(msg);
   },
@@ -6952,7 +7100,7 @@ const Trace = {
   strokeDone() {
     this.drawing = false;
     this.si++;
-    this.ink = []; this.stall = 0; this.lastP = null;
+    this.ci = 0; this.ink = []; this.stall = 0; this.lastP = null; this.dirSet = false;
     SFX.correct();
     if (this.si >= this.strokes.length) { this.charDone(); return; }
     this.renderPad();
