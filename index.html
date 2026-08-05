@@ -1082,7 +1082,8 @@ const CONFIG = {
   // ✍️ 알파벳 쓰기 — 획 순서대로 따라 쓰기 (1단계 글자 / 2단계 3~4글자 단어)
   trace: {
     rounds1: 10, rounds2: 6,      // 한 판에 풀 문제 수
-    coin1: 1, coin2: 2,           // 완성 보상 (1단계 글자 1개 / 2단계 단어 1개)
+    coin1: 1, per1: 2,            // 1단계: 글자 per1개를 쓸 때마다 coin1 지급 (2글자당 🪙1)
+    coin2: 2,                     // 2단계: 단어 1개 완성마다 (그대로)
     comboEvery: 5, comboBonus: 3, // 실수 없이 연속 5번마다 보너스 코인
     tol: 16, offMax: 26,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계) — 넉넉하게
     stallMax: 45,                 // 전진 없이 이만큼 움직이면 "방향이 반대"로 안내
@@ -6800,6 +6801,7 @@ const Trace = {
     SAVE.stats.gamesPlayed.trace = (SAVE.stats.gamesPlayed.trace || 0) + 1;
     saveNow();
     lastGame = { restart: () => Trace.start(this.stage) };
+    this.pend = 0;
     if (this.stage === 1) {
       const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
       const pool = shuffle(upper.concat(upper.map(c => c.toLowerCase())));
@@ -7121,7 +7123,13 @@ const Trace = {
 
   award() {
     Session.lock = true;
-    const coins = this.stage === 2 ? CONFIG.trace.coin2 : CONFIG.trace.coin1;
+    // 1단계는 글자 2개(per1)를 쓸 때마다 🪙1 · 2단계는 단어 1개마다 🪙2
+    let coins = CONFIG.trace.coin2;
+    if (this.stage === 1) {
+      this.pend = (this.pend || 0) + 1;
+      if (this.pend >= CONFIG.trace.per1) { this.pend = 0; coins = CONFIG.trace.coin1; }
+      else coins = 0;
+    }
     SAVE.stats.totalAnswered++;
     if (!this.missed) {
       Session.correctFirst++;
@@ -7131,7 +7139,8 @@ const Trace = {
       SAVE.stats.bestCombo = Math.max(SAVE.stats.bestCombo, Session.combo);
     }
     saveNow();
-    addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.45);
+    if (coins > 0) addCoins(coins, window.innerWidth / 2, window.innerHeight * 0.45);
+    else toast("✍️ 잘했어요! 한 글자만 더 쓰면 🪙 +" + CONFIG.trace.coin1, 1700);
     const cc = $("#combo-chip");
     if (cc) {
       cc.textContent = Session.combo >= 2 ? "🔥" + Session.combo : "";
@@ -7166,12 +7175,12 @@ Screens.trace = (el) => {
       '<button class="mode-btn" data-act="trace-play" data-stage="1">' +
         '<span class="mi" style="background:#e3f0ff">🔤</span>' +
         '<span><div class="mt">1단계 · 글자 쓰기</div><div class="md">A~Z · a~z 획 순서대로 (' +
-          CONFIG.trace.rounds1 + "문제 · 1개당 🪙 " + CONFIG.trace.coin1 + ")</div></span>" +
+          CONFIG.trace.rounds1 + "문제 · " + CONFIG.trace.per1 + "글자마다 🪙 " + CONFIG.trace.coin1 + ")</div></span>" +
         '<span class="arrow">▶</span></button>' +
       '<button class="mode-btn" data-act="trace-play" data-stage="2">' +
         '<span class="mi" style="background:#ffeede">🐣</span>' +
         '<span><div class="mt">2단계 · 쉬운 단어 쓰기</div><div class="md">3~4글자 단어 ' + wordCount + '개 중에서 (' +
-          CONFIG.trace.rounds2 + "문제 · 1개당 🪙 " + CONFIG.trace.coin2 + ")</div></span>" +
+          CONFIG.trace.rounds2 + "문제 · 단어 1개마다 🪙 " + CONFIG.trace.coin2 + ")</div></span>" +
         '<span class="arrow">▶</span></button>' +
     "</div>" +
     '<div class="pz-hint">실수 없이 <b>' + CONFIG.trace.comboEvery + "연속</b> 성공하면 보너스 🪙 " + CONFIG.trace.comboBonus + "!</div>";
