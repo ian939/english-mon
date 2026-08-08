@@ -1127,6 +1127,7 @@ const CONFIG = {
     tol: 16, offMax: 26,          // 체크포인트 인정 반경 / 경로 이탈 한계 (0~100 좌표계) — 넉넉하게
     stallMax: 45,                 // 전진 없이 이만큼 움직이면 "방향이 반대"로 안내
     jump: 10,                     // 한 번에 인정할 최대 전진 체크포인트 수 (빨리 그어도 인정)
+    linkGap: 10,                  // 앞 획 끝과 다음 획 시작이 이만큼 가까우면 손 떼지 않고 이어 그리기 (W·M·N·V·Z…)
   },
   // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
   // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
@@ -7049,7 +7050,10 @@ const Trace = {
           '<div class="tr-pad" id="tr-pad"></div>' +
         "</div>" +
       "</div>" +
-      '<div class="pz-hint" id="tr-hint">왼쪽을 보고, 오른쪽 칸에 <b>①</b> 부터 따라 그어요!</div>';
+      '<div class="pz-hint" id="tr-hint">' +
+        (this.raw.some((_, i) => this.linked(i))
+          ? "이어진 획은 <b>손을 떼지 않고</b> 쭉 이어서 써도 돼요! ✍️"
+          : "왼쪽을 보고, 오른쪽 칸에 <b>①</b> 부터 따라 그어요!") + "</div>";
     this.renderPad();
     this.demo();
     const sp = $("#tr-speak");
@@ -7172,14 +7176,15 @@ const Trace = {
     const pen = host.querySelector("#dm-pen");
     const lens = paths.map(p => p.getTotalLength());
     const durs = lens.map(L => Math.max(450, Math.min(1500, L * 16)));
-    const gap = 220, hold = 900;
-    const cycle = durs.reduce((s, d) => s + d + gap, 0) + hold;
+    const gaps = paths.map((_, i) => (this.linked(i) ? 0 : 220)); // 이어지는 획 사이엔 쉼 없음
+    const hold = 900;
+    const cycle = durs.reduce((s, d, i) => s + d + gaps[i], 0) + hold;
     const t0 = Date.now();
     const draw = () => {
       let t = (Date.now() - t0) % cycle;
       let active = -1, prog = 0;
       for (let i = 0; i < paths.length; i++) {
-        const seg = durs[i] + gap;
+        const seg = durs[i] + gaps[i];
         if (t < seg) { active = i; prog = Math.min(1, t / durs[i]); break; }
         t -= seg;
       }
@@ -7212,6 +7217,14 @@ const Trace = {
 
   // 획 굵기 — 한글은 한 칸에 자모 2~4개가 들어가므로 알파벳보다 얇게 (뭉개짐·삐져나옴 방지)
   penW() { return this.stage === 3 ? 8.5 : 15; },
+
+  // i번째 획의 끝과 (i+1)번째 획의 시작이 붙어 있나? (W·M·N·V·Z·L처럼 한 번에 이어 쓸 수 있는 글자)
+  // 기준은 획 굵기에 비례 — 획이 얇은 한글은 더 엄격하게 (자모는 따로 쓰는 게 맞다)
+  linked(i) {
+    const a = this.strokes[i], b = this.strokes[i + 1];
+    if (!a || !b) return false;
+    return this.near(a[a.length - 1], b[0]) <= CONFIG.trace.linkGap * (this.penW() / 15);
+  },
 
   // 획이 짧으면(한글 자모, i의 점 등) 판정을 조금 좁힌다 — 긴 획은 그대로 넉넉하게
   tolFor(cps) {
@@ -7337,11 +7350,21 @@ const Trace = {
   },
 
   strokeDone() {
+    const wasDrawing = this.drawing;
+    const link = this.linked(this.si); // 다음 획이 지금 획 끝에 붙어 있나 (W·M·N·V·Z…)
     this.drawing = false;
     this.si++;
     this.ci = 0; this.ink = []; this.stall = 0; this.lastP = null; this.dirSet = false;
     SFX.correct();
     if (this.si >= this.strokes.length) { this.charDone(); return; }
+    // 붙어 있는 획이면 손을 떼지 않고 그대로 이어서 다음 획으로 (W를 한 번에 쓰기)
+    if (wasDrawing && link) {
+      this.drawing = true;
+      this.ci = 1;
+      this.ink = [this.strokes[this.si][0].slice()];
+      this.renderPad();
+      return;
+    }
     this.renderPad();
     toast("좋아요! 다음은 " + (this.si + 1) + "번 획 ✍️", 1200);
   },
