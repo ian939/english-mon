@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>잉글리시몬 — 영어 단어 모험</title>
 <!--
   잉글리시몬: 초등 1학년 영어 단어 학습 게임 (단일 HTML 파일)
@@ -1091,6 +1093,8 @@ body.granny .tr-prompt .tr-big { font-size: 46px; }
    예: "https://englishmon-xxxxx-default-rtdb.asia-southeast1.firebasedatabase.app"
    (비워두면 가족 기능은 안내 화면만 표시)
 ================================================================ */
+// 화면 아래에 표시되는 버전 — 새로 배포할 때마다 올린다 (패드가 옛 파일을 캐시했는지 눈으로 확인용)
+const APP_VERSION = "2026-09-25a";
 var CLOUD_DB_URL = "https://elglishmon-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 /* ================================================================
@@ -4081,6 +4085,32 @@ const Screens = {};
 let currentScreen = null;
 let screenTimers = [];
 function later(fn, ms) { screenTimers.push(setTimeout(fn, ms)); }
+// ---- 새 버전 확인 ----
+// 패드(특히 홈 화면에 추가한 경우)는 옛 HTML을 오래 붙들고 있어서 새 기능이 안 보인다.
+// 서버 파일의 APP_VERSION과 지금 실행 중인 값을 비교해, 다르면 새로고침을 안내한다.
+let updateChecked = false;
+async function checkUpdate() {
+  // file:// 로 직접 열었을 땐 확인 요청이 막히므로 건너뛴다
+  if (updateChecked || !navigator.onLine || !/^https?:$/.test(location.protocol)) return;
+  updateChecked = true;
+  try {
+    const r = await fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const m = /APP_VERSION\s*=\s*"([^"]+)"/.exec(await r.text());
+    if (!m || m[1] === APP_VERSION) return;
+    showModal(
+      '<div class="m-emoji">🎁</div>' +
+      '<div class="m-title">새 버전이 나왔어요!</div>' +
+      '<div class="m-text">지금 <b>v' + esc(APP_VERSION) + "</b> 을 쓰고 있어요.<br>" +
+        "새 버전 <b>v" + esc(m[1]) + "</b> 으로 바꿔 볼까요?</div>" +
+      '<div class="m-btns" style="flex-direction:column">' +
+        '<button class="btn green" data-act="app-update">🔄 새 버전으로 바꾸기</button>' +
+        '<button class="btn ghost" data-act="close-modal">나중에</button>' +
+      "</div>"
+    );
+  } catch (e) { /* 오프라인이면 조용히 넘어간다 */ }
+}
+
 function showScreen(name, params) {
   screenTimers.forEach(clearTimeout);
   screenTimers = [];
@@ -4427,7 +4457,9 @@ Screens.home = (el) => {
         '<span><div class="mt">카드 짝맞추기</div><div class="md">준비 중이에요</div></span>' +
         '<span class="arrow">🔒</span></button>' +
     "</div>" +
-    '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI' + (Family.linked() ? " · 가족 코드 " + esc(Family.st.code) : "") + "</div>";
+    '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI' + (Family.linked() ? " · 가족 코드 " + esc(Family.st.code) : "") +
+      ' · <span id="app-ver">v' + APP_VERSION + "</span></div>";
+  checkUpdate(); // 패드가 옛날 파일을 캐시하고 있으면 알려준다
   Family.updateBadges();
 
   if (!SAVE.welcomed) {
@@ -8165,6 +8197,9 @@ document.addEventListener("click", (e) => {
       toast("🤝 " + josa(POKEMON_KO[pid - 1], "을를") + " 파트너로 정했어요! 모험에서 함께해요", 2200);
       break;
     }
+    case "app-update": // 캐시를 비우고 새 파일로 다시 열기
+      location.replace(location.pathname + "?v=" + Date.now());
+      break;
     case "modal-shop": closeModal(); SFX.tap(); showScreen("shop"); break;
     case "modal-quiz": closeModal(); SFX.tap(); showScreen("category", { mode: "quiz" }); break;
     case "modal-adventure": closeModal(); SFX.tap(); Adventure.encounter(); break;
