@@ -1112,7 +1112,7 @@ body.granny .tr-prompt .tr-big { font-size: 46px; }
    (비워두면 가족 기능은 안내 화면만 표시)
 ================================================================ */
 // 화면 아래에 표시되는 버전 — 새로 배포할 때마다 올린다 (패드가 옛 파일을 캐시했는지 눈으로 확인용)
-const APP_VERSION = "2026-09-25c";
+const APP_VERSION = "2026-09-25d";
 var CLOUD_DB_URL = "https://elglishmon-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 /* ================================================================
@@ -5496,8 +5496,8 @@ const Memory = {
 
   cardHtml(c, i) {
     const face = c.type === "en"
-      // 영어 스펠링 카드
-      ? '<div class="face front t-en"><div class="fw">' + esc(c.word.en) + "</div></div>"
+      // 영어 스펠링 카드 — 뒤집으면 영어 발음
+      ? '<div class="face front t-en"><span class="snd">🔊</span><div class="fw">' + esc(c.word.en) + "</div></div>"
       // 그림 + 한글 카드 — 뒤집으면 영어 발음이 나온다 (🔊는 모서리에, 그림을 가리지 않게)
       : '<div class="face front t-ko"><span class="snd">🔊</span><div class="fe">' + emojiHtml(c.word) + '</div><div class="fw">' + esc(c.word.ko) + "</div></div>";
     return '<div class="mcard" data-i="' + i + '"><div class="inner"><div class="face back">❓</div>' + face + "</div></div>";
@@ -5506,7 +5506,7 @@ const Memory = {
   render(el) {
     el.innerHTML =
       gameHeadHtml() +
-      '<p class="prompt-hint" style="text-align:center;margin-bottom:10px">🟢 그림 카드(🔊 소리)와 🔵 영어 스펠링 카드의 짝을 찾아요!</p>' +
+      '<p class="prompt-hint" style="text-align:center;margin-bottom:10px">🟢 그림 카드와 🔵 영어 스펠링 카드의 짝을 찾아요! (뒤집으면 🔊 소리)</p>' +
       '<div class="memory-grid c' + this.size + '" id="memory-grid">' +
       this.deck.map((c, i) => this.cardHtml(c, i)).join("") +
       "</div>";
@@ -5547,15 +5547,15 @@ const Memory = {
   pick(cardEl) {
     if (this.boardLock) return;
     const card = this.deck[Number(cardEl.dataset.i)];
-    // 이미 뒤집어 둔 그림 카드를 다시 누르면 소리만 한 번 더
+    // 이미 뒤집어 둔 카드를 다시 누르면 소리만 한 번 더
     if (this.firstPick && this.firstPick.el === cardEl) {
-      if (card.type === "ko") TTS.speak(card.word.en);
+      TTS.speak(card.word.en);
       return;
     }
     if (cardEl.classList.contains("flip") || cardEl.classList.contains("matched")) return;
     SFX.flip();
     cardEl.classList.add("flip");
-    if (card.type === "ko") TTS.speak(card.word.en); // 그림 카드 = 소리 듣기
+    TTS.speak(card.word.en); // 그림 카드·영어 카드 모두 뒤집으면 영어 발음
 
     if (!this.firstPick) {
       this.firstPick = { el: cardEl, card };
