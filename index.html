@@ -1094,7 +1094,7 @@ body.granny .tr-prompt .tr-big { font-size: 46px; }
    (비워두면 가족 기능은 안내 화면만 표시)
 ================================================================ */
 // 화면 아래에 표시되는 버전 — 새로 배포할 때마다 올린다 (패드가 옛 파일을 캐시했는지 눈으로 확인용)
-const APP_VERSION = "2026-09-25a";
+const APP_VERSION = "2026-09-25b";
 var CLOUD_DB_URL = "https://elglishmon-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 /* ================================================================
@@ -5577,14 +5577,18 @@ const Rocket = {
     return Math.random() < CONFIG.rocket.chance;
   },
 
-  // 훔쳐온 포켓몬 후보: 해금 지역의 **도감에 없는** 포켓몬만 (레어~유니크 우선)
+  // 훔쳐온 포켓몬 후보: 해금 지역의 **도감에 없는** 포켓몬만 (레어~유니크 → 일반 → 전설 순)
+  // 전설도 후보에 넣는다 — 도감을 거의 채우면 남는 게 전설뿐인데, 전설을 빼면 후보가 0이 되어
+  // 확률·천장과 무관하게 로켓단이 영영 안 나왔다 (2026-09-25 실제 저장: 484/493, 남은 9마리 전부 전설)
   stolenPool() {
     const own = id => SAVE.pokedex[id] && SAVE.pokedex[id].count >= 1;
     const rare = rarityPoolInRange("unique").concat(rarityPoolInRange("rare")).filter(id => !own(id));
     if (rare.length) return rare;
     const common = rarityPoolInRange("common").filter(id => !own(id));
     if (common.length) return common;
-    return []; // 이 지역을 다 모았으면 로켓단은 나오지 않음
+    const legend = rarityPoolInRange("legendary").filter(id => !own(id));
+    if (legend.length) return legend;
+    return []; // 이 지역을 정말 다 모았으면 (다음 지역이 열리므로 사실상 마지막 지역에서만)
   },
 
   start() {
@@ -5669,7 +5673,9 @@ const Rocket = {
       $("#rk-mon").classList.remove("hidden");
       const ally = $("#adv-ally");
       if (ally) ally.classList.remove("hidden");
-      typeText($("#battle-dialog"), "가둬둔 " + josa(m.name, "을를") + " 보여준다… 구해 줘!");
+      typeText($("#battle-dialog"), m.rarity === "legendary"
+        ? "⚡ 전설의 포켓몬 " + josa(m.name, "을를") + " 훔쳐 왔다! 꼭 구해 줘!"
+        : "가둬둔 " + josa(m.name, "을를") + " 보여준다… 구해 줘!");
       SFX.bgmStart();
     }, 4700);
     later(() => this.nextRound(), 6200);
