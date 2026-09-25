@@ -351,6 +351,24 @@ body.granny .coach-line { font-size: 18px; }
 .mcard.matched { pointer-events: none; }
 .mcard.matched .inner { animation: matchGlow .6s ease; }
 .mcard.matched .front { background: #eafff3; }
+/* 20·30·40장 — 패드(넓은 화면)는 한 화면에, 폰은 칸이 44px 밑으로 작아지지 않게 열 수를 줄인다 */
+.memory-grid.c20 { grid-template-columns: repeat(5, 1fr); }
+.memory-grid.c30 { grid-template-columns: repeat(6, 1fr); gap: 7px; }
+.memory-grid.c40 { grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.memory-grid.c40 .mcard { aspect-ratio: 1 / 1.08; }
+@media (max-width: 520px) {
+  .memory-grid.c20 { grid-template-columns: repeat(4, 1fr); }
+  .memory-grid.c30 { grid-template-columns: repeat(5, 1fr); }
+  .memory-grid.c40 { grid-template-columns: repeat(5, 1fr); }
+  .memory-grid.c40 .mcard { aspect-ratio: 1 / 1; }
+}
+.memory-grid.c30 .front .fe, .memory-grid.c40 .front .fe { font-size: clamp(18px, 5vw, 26px); }
+.memory-grid.c30 .front .fw, .memory-grid.c40 .front .fw { font-size: clamp(10px, 2.8vw, 13px); }
+.mcard .front.t-en .fw { font-size: clamp(12px, 3.6vw, 17px); letter-spacing: .5px; color: #1f5fbf;
+  width: 100%; white-space: nowrap; word-break: normal; overflow: hidden; } /* 철자는 중간에서 끊지 않는다 */
+.memory-grid.c40 .front.t-en .fw { font-size: clamp(10px, 2.9vw, 14px); letter-spacing: 0; }
+/* 🔊 표시는 모서리에 — 그림·글자를 가리지 않게 (카드 크기에 비례) */
+.mcard .front .snd { position: absolute; top: 4%; right: 5%; font-size: clamp(9px, 2.4vw, 13px); opacity: .75; }
 @keyframes matchGlow { 0% { transform: rotateY(180deg) scale(1) } 50% { transform: rotateY(180deg) scale(1.12) } 100% { transform: rotateY(180deg) scale(1) } }
 
 /* ===== 결과 화면 ===== */
@@ -1094,7 +1112,7 @@ body.granny .tr-prompt .tr-big { font-size: 46px; }
    (비워두면 가족 기능은 안내 화면만 표시)
 ================================================================ */
 // 화면 아래에 표시되는 버전 — 새로 배포할 때마다 올린다 (패드가 옛 파일을 캐시했는지 눈으로 확인용)
-const APP_VERSION = "2026-09-25b";
+const APP_VERSION = "2026-09-25c";
 var CLOUD_DB_URL = "https://elglishmon-default-rtdb.asia-southeast1.firebasedatabase.app";
 
 /* ================================================================
@@ -1106,8 +1124,16 @@ const CONFIG = {
   coinPerCorrect: 1,     // 첫 시도 정답 1개 = 코인 1
   comboEvery: 5,         // 5콤보마다
   comboBonus: 2,         //   보너스 코인 +2
-  perfectBonus: 3,       // 짝맞추기 퍼펙트 보너스 코인
-  memoryPerfectSlack: 3, // 퍼펙트 판정: 실패 뒤집기 <= 쌍수+3 - 쌍수 = 3회 여유
+  // 🃏 카드 짝맞추기 — 그림·한글(🔊 발음) 카드 ↔ 영어 스펠링 카드
+  // 짝 1개 = 🪙1 (+5콤보 보너스), 틀린 뒤집기가 perfectSlack 이하면 퍼펙트 보너스
+  memory: {
+    levels: {
+      20: { pairs: 10, preview: 2500, perfectSlack: 10, bonus: 3 }, // 처음엔 2.5초 미리보기
+      30: { pairs: 15, preview: 0,    perfectSlack: 15, bonus: 5 },
+      40: { pairs: 20, preview: 0,    perfectSlack: 20, bonus: 7 },
+    },
+    maxEn: 8,              // 작은 카드에서도 스펠링이 읽히도록 8글자 이하 단어만
+  },
   spellChance: 0.2,      // 정답 후 스펠링 보너스 찬스 발동 확률
   spellBonus: 2,         // 스펠링을 한 번도 안 틀리고 완성하면 보너스 코인
   sentenceChance: 0.35,  // 퀴즈에서 문장 문제(빈칸/만들기)가 나올 확률 — 아이 모드 전용
@@ -4452,10 +4478,10 @@ Screens.home = (el) => {
         '<span class="mi" style="background:#fff0f5">🏆</span>' +
         '<span><div class="mt">포켓몬 쇼다운</div><div class="md">밀어서 순서 맞추기 · 적은 이동으로 풀면 🪙 더!</div></span>' +
         '<span class="arrow">▶</span></button>' +
-      '<button class="mode-btn locked" data-act="mode-locked">' +
-        '<span class="mi" style="background:#e8ecf1">🃏</span>' +
-        '<span><div class="mt">카드 짝맞추기</div><div class="md">준비 중이에요</div></span>' +
-        '<span class="arrow">🔒</span></button>' +
+      '<button class="mode-btn" data-act="pick-cat" data-mode="memory">' +
+        '<span class="mi" style="background:#fff4d6">🃏</span>' +
+        '<span><div class="mt">카드 짝맞추기</div><div class="md">그림·한글(🔊) ↔ 영어 스펠링 · 20/30/40장 · 🪙 벌기</div></span>' +
+        '<span class="arrow">▶</span></button>' +
     "</div>" +
     '<div class="home-foot">개인 학습용 · 포켓몬 이미지: PokeAPI' + (Family.linked() ? " · 가족 코드 " + esc(Family.st.code) : "") +
       ' · <span id="app-ver">v' + APP_VERSION + "</span></div>";
@@ -4488,8 +4514,9 @@ Screens.category = (el, params) => {
   } else {
     segHtml =
       '<div class="seg" id="seg-opt">' +
-        '<button data-v="easy" class="on">🌱 쉬움 (카드 12장)</button>' +
-        '<button data-v="hard">🌶️ 어려움 (카드 16장)</button>' +
+        '<button data-v="20" class="on">🌱 20장</button>' +
+        '<button data-v="30">🍀 30장</button>' +
+        '<button data-v="40">🔥 40장</button>' +
       "</div>";
   }
   const cats = activeSet().categories.map(c => {
@@ -5442,17 +5469,23 @@ Screens.chain = (el) => {
    [S15] 게임 모드 3 — 카드 짝맞추기
 ================================================================ */
 const Memory = {
-  deck: [], firstPick: null, boardLock: false, failFlips: 0, matchedPairs: 0, pairs: 6, isEasy: true,
+  deck: [], firstPick: null, boardLock: false, failFlips: 0, matchedPairs: 0, pairs: 10, size: 20, lv: null,
+
+  // 짝맞추기에 쓸 단어: 한 단어(띄어쓰기 없음) · 스펠링 8글자 이하 → 작은 카드에서도 읽힌다
+  usable(w) { return /^[a-z]+$/i.test(w.en) && w.en.length <= CONFIG.memory.maxEn; },
 
   start(cat, opt) {
-    this.isEasy = opt !== "hard";
-    this.pairs = this.isEasy ? 6 : 8;
+    this.size = CONFIG.memory.levels[opt] ? Number(opt) : 20;
+    this.lv = CONFIG.memory.levels[this.size];
+    this.pairs = this.lv.pairs;
     Session.reset("memory", this.pairs);
     SAVE.stats.gamesPlayed.memory++; saveNow();
-    lastGame = { restart: () => Memory.start(cat, opt) };
+    lastGame = { restart: () => Memory.start(cat, String(this.size)) };
 
-    const pool = cat ? activeWords().filter(w => w.cat === cat) : activeWords();
-    const words = pickN(pool, this.pairs);
+    // 고른 카테고리에서 먼저 뽑고, 모자라면 전체 단어로 채운다 (색깔처럼 단어가 적은 카테고리 대비)
+    const all = activeWords().filter(w => this.usable(w));
+    let words = pickN(cat ? all.filter(w => w.cat === cat) : all, this.pairs);
+    if (words.length < this.pairs) words = words.concat(pickN(all.filter(w => !words.includes(w)), this.pairs - words.length));
     this.deck = shuffle(words.flatMap(w => [
       { word: w, type: "en" }, { word: w, type: "ko" },
     ]));
@@ -5463,27 +5496,30 @@ const Memory = {
 
   cardHtml(c, i) {
     const face = c.type === "en"
-      ? '<div class="face front t-en"><div class="fw" style="font-size:clamp(13px,4vw,18px)">' + esc(c.word.en) + "</div></div>"
-      : '<div class="face front t-ko"><div class="fe">' + emojiHtml(c.word) + '</div><div class="fw">' + esc(c.word.ko) + "</div></div>";
+      // 영어 스펠링 카드
+      ? '<div class="face front t-en"><div class="fw">' + esc(c.word.en) + "</div></div>"
+      // 그림 + 한글 카드 — 뒤집으면 영어 발음이 나온다 (🔊는 모서리에, 그림을 가리지 않게)
+      : '<div class="face front t-ko"><span class="snd">🔊</span><div class="fe">' + emojiHtml(c.word) + '</div><div class="fw">' + esc(c.word.ko) + "</div></div>";
     return '<div class="mcard" data-i="' + i + '"><div class="inner"><div class="face back">❓</div>' + face + "</div></div>";
   },
 
   render(el) {
     el.innerHTML =
       gameHeadHtml() +
-      '<p class="prompt-hint" style="text-align:center;margin-bottom:10px">🔵 영어 카드와 🟢 그림 카드의 짝을 찾아요!</p>' +
-      '<div class="memory-grid" id="memory-grid">' +
+      '<p class="prompt-hint" style="text-align:center;margin-bottom:10px">🟢 그림 카드(🔊 소리)와 🔵 영어 스펠링 카드의 짝을 찾아요!</p>' +
+      '<div class="memory-grid c' + this.size + '" id="memory-grid">' +
       this.deck.map((c, i) => this.cardHtml(c, i)).join("") +
       "</div>";
 
     const grid = $("#memory-grid");
+    this.fitSpellings(grid);
     grid.addEventListener("click", (e) => {
       const cardEl = e.target.closest(".mcard");
       if (cardEl) this.pick(cardEl);
     });
 
-    if (this.isEasy) {
-      // 쉬움: 2초 미리보기
+    if (this.lv.preview) {
+      // 20장: 처음에 잠깐 전부 보여주기
       this.boardLock = true;
       later(() => {
         grid.querySelectorAll(".mcard").forEach(c => c.classList.add("flip"));
@@ -5492,16 +5528,34 @@ const Memory = {
       later(() => {
         grid.querySelectorAll(".mcard").forEach(c => c.classList.remove("flip"));
         this.boardLock = false;
-      }, 2600);
+      }, 500 + this.lv.preview);
     }
+  },
+
+  // 영어 스펠링이 카드보다 길면 글자 크기를 줄여 한 줄에 맞춘다 (december → decembe/r 로 끊기던 문제)
+  fitSpellings(grid) {
+    grid.querySelectorAll(".front.t-en .fw").forEach(el => {
+      let fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth + 0.5 && fs > 8) {
+        fs -= 0.5;
+        el.style.fontSize = fs + "px";
+        if (fs < 11) el.style.letterSpacing = "0";
+      }
+    });
   },
 
   pick(cardEl) {
     if (this.boardLock) return;
+    const card = this.deck[Number(cardEl.dataset.i)];
+    // 이미 뒤집어 둔 그림 카드를 다시 누르면 소리만 한 번 더
+    if (this.firstPick && this.firstPick.el === cardEl) {
+      if (card.type === "ko") TTS.speak(card.word.en);
+      return;
+    }
     if (cardEl.classList.contains("flip") || cardEl.classList.contains("matched")) return;
     SFX.flip();
     cardEl.classList.add("flip");
-    const card = this.deck[Number(cardEl.dataset.i)];
+    if (card.type === "ko") TTS.speak(card.word.en); // 그림 카드 = 소리 듣기
 
     if (!this.firstPick) {
       this.firstPick = { el: cardEl, card };
@@ -5518,7 +5572,7 @@ const Memory = {
       SAVE.stats.totalAnswered++;
       const r = cardEl.getBoundingClientRect();
       awardFirstTry(r.left + r.width / 2, r.top);
-      TTS.speak(card.word.en);
+      later(() => TTS.speak(card.word.en), 250);
       if (this.matchedPairs >= this.pairs) later(() => this.finish(), 900);
     } else {
       this.boardLock = true;
@@ -5529,16 +5583,16 @@ const Memory = {
         a.el.classList.remove("flip");
         cardEl.classList.remove("flip");
         this.boardLock = false;
-      }, 950);
+      }, 1000);
     }
   },
 
   finish() {
-    let extra = "";
-    if (this.failFlips <= CONFIG.memoryPerfectSlack) {
-      addCoins(CONFIG.perfectBonus);
+    let extra = "<br>틀린 뒤집기 <b>" + this.failFlips + "번</b>";
+    if (this.failFlips <= this.lv.perfectSlack) {
+      addCoins(this.lv.bonus);
       SFX.combo();
-      extra = "<br>🏅 <b>퍼펙트!</b> 보너스 코인 +" + CONFIG.perfectBonus;
+      extra += "<br>🏅 <b>퍼펙트!</b> 보너스 코인 +" + this.lv.bonus;
       fxConfetti(["🏅","✨","🎉"]);
     }
     Result.show(extra);
