@@ -1129,10 +1129,11 @@ const CONFIG = {
     jump: 10,                     // 한 번에 인정할 최대 전진 체크포인트 수 (빨리 그어도 인정)
     linkGap: 10,                  // 앞 획 끝과 다음 획 시작이 이만큼 가까우면 손 떼지 않고 이어 그리기 (W·M·N·V·Z…)
   },
-  // 로켓단 조우 — 모험을 이어갈 때 15% 확률, 7판 동안 안 나오면 다음 판 확정
-  // 홈·상점에서 새로 출발하는 첫 조우에서는 나오지 않음 (홈↔모험 반복 어뷰징 방지)
+  // 로켓단 조우 — 모험을 이어갈 때 20% 확률, 5판 동안 안 나오면 다음 판 확정
+  // 홈·상점에서 새로 출발하는 첫 조우에서는 '확률'로는 안 나옴 (홈↔모험 반복 어뷰징 방지)
+  // 단, 천장(pity)은 첫 조우에서도 그대로 보장한다
   // 코인 보상 없음(구출 자체가 보상), 무실수 승리 시에만 볼 보너스
-  rocket: { chance: 0.15, pity: 7, rounds: 3, coin: 0, perfectBall: "hyper" },
+  rocket: { chance: 0.20, pity: 5, rounds: 3, coin: 0, perfectBall: "hyper" },
   welcomeBalls: { poke: 2, super: 0, hyper: 0, master: 0 },
 
   balls: {
@@ -7553,9 +7554,12 @@ const Adventure = {
   // (일반 포켓몬이 나오면 홈으로 나갔다 다시 들어오며 로켓단만 노리는 것을 막기 위함)
   encounter(opts) {
     const noRocket = !!(opts && opts.noRocket);
-    // 로켓단 조우 (확률 + pity) — 야생 포켓몬 대신 등장 (모험을 이어갈 때만)
+    // 로켓단 조우 (확률 + pity) — 야생 포켓몬 대신 등장
     SAVE.rocketSince = (SAVE.rocketSince || 0) + 1;
-    if (!noRocket && Rocket.shouldAppear() && Rocket.stolenPool().length) { Rocket.start(); return; }
+    // 홈·상점에서 출발한 첫 조우는 '확률'로는 안 나오지만, 천장(pity)은 그대로 보장한다
+    // (이게 없으면 홈↔모험을 오가며 노는 아이에게는 로켓단이 영원히 안 나온다)
+    const pityHit = (SAVE.rocketSince || 0) >= CONFIG.rocket.pity;
+    if ((pityHit || !noRocket) && Rocket.shouldAppear() && Rocket.stolenPool().length) { Rocket.start(); return; }
     saveNow();
     this.encounterWild();
   },
